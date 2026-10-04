@@ -7,7 +7,7 @@ Verified on 4 October 2026 (Europe/London) with Node.js 22.22.0. Automated tests
 - 37 server/domain/migration/hosted-queue tests passed (`npm test`): the CRM suite on SQLite, plus PostgreSQL transfer tests.
 - 32 CRM tests passed against PostgreSQL through PGlite (`npm run test:postgres`).
 - Real Neon TLS connection, cross-connection write locking and rollback passed; application migration and authenticated HTTP checks passed.
-- 6 browser tests passed (`npm run test:e2e`).
+- 7 browser tests passed (`npm run test:e2e`).
 - TypeScript checks and production build passed.
 - Formatting checks and strict premium UI audit passed.
 - Browser accessibility scans of Overview and Integration reported no violations. Desktop and mobile layouts were inspected; the mobile document has no horizontal overflow.
@@ -71,7 +71,7 @@ The original deployment served only Vite files: API, authentication, webhook and
 
 - Production variables were absent initially. Database, owner access and Meta configuration were installed server-side, with sensitive values protected. Preview has no production credentials and its API refuses production access. Credentials and private files were checked against tracked source and CDN assets.
 - Hosted `health`, owner session, Integration and Overview return 200; unauthenticated lead endpoints remain protected. Invalid webhook signatures return 401. Signed duplicate replay returns 200 and does not create a second lead/milestone. Both CSV and JSON export preserve exact string IDs. Exports now stream in bounded batches; dashboard totals use SQL aggregates.
-- The Mac worker was stopped before the hosted check. A private queue wakeup completed successfully, and the authenticated daily recovery endpoint returned 200. SQL leases and retries are additionally covered by PostgreSQL queue tests, including failed publication, duplicate redelivery, delayed retry, actionable failure repair, stable identity and live lock.
+- The Mac worker was stopped before the hosted check. A private queue wakeup completed successfully, and the authenticated daily recovery endpoint returned 200. The mobile hosted-queue interface, live lock, background-check success/failure recovery and accessibility scan passed in an isolated browser test. SQL leases and retries are additionally covered by PostgreSQL queue tests, including failed publication, duplicate redelivery, delayed retry, actionable failure repair, stable identity and live lock.
 - Meta verified the permanent callback `https://webm8-crm.vercel.app/api/webhooks/meta` on WebM8 CRM app `2410704026403835`. Its subscription remains Page `leadgen` at `v26.0`.
 - With owner approval, Meta's test slot was reset and a new genuine Meta test lead `1608903124054839` was created. Meta's Testing Tool reports **Success / Successful webhook integration** for this app. Its signed notification was received at `2026-10-04T09:26:27.833Z`, Graph retrieval completed on attempt one, and a single `CRM_NewLead` event was **Accepted by Meta** at `2026-10-04T09:26:30.070Z` on attempt one. Event ID `a216cec2-513c-44e5-af52-420f4a8275b8`, original event time `1791105989`, mode **test**. Intake/retrieval/delivery completed on Vercel without the Mac worker.
 - At this check, there are five lead records and five accepted initial test events, zero demo records, no positive milestones and no sales invented. Acceptance status does not establish matching, attribution, optimization eligibility or completed Meta funnel validation.

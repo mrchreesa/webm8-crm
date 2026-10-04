@@ -181,3 +181,53 @@ test('received and stage filters restore after opening a lead; browser Back prot
   await page.getByRole('button', { name: 'Keep editing' }).click();
   await expect(page.getByLabel('Add a note')).toHaveValue('Browser Back draft');
 });
+
+test('hosted queue status, live lock and background-check recovery stay usable on mobile', async ({
+  page,
+}) => {
+  await page.route(/\/api\/integration(?:\?.*)?$/, async (route) => {
+    const response = await route.fetch();
+    const data = await response.json();
+    await route.fulfill({
+      json: {
+        ...data,
+        settings: { ...data.settings, mode: 'test' },
+        live_allowed: false,
+        worker: { kind: 'queue', configured: true, running: false, last_seen: null, error: null },
+      },
+    });
+  });
+  let fail = false;
+  await page.route('**/api/integration/queue/check', (route) =>
+    route.fulfill({
+      status: fail ? 503 : 200,
+      json: fail
+        ? { error: 'Hosted queue unavailable. Saved work will be recovered.' }
+        : { queued: true },
+    }),
+  );
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.getByRole('link', { name: 'Meta integration', exact: true }).click();
+  await page.getByRole('button', { name: 'Refresh status', exact: true }).click();
+  await expect(
+    page.getByRole('heading', { name: 'Hosted background queue configured' }),
+  ).toBeVisible();
+  await expect(
+    page.getByText('Awaiting the first background check.', { exact: false }),
+  ).toBeVisible();
+  await page.getByRole('button', { name: 'Check background delivery' }).click();
+  await expect(page.getByRole('status')).toContainText('Background check queued');
+  fail = true;
+  await page.getByRole('button', { name: 'Check background delivery' }).click();
+  await expect(page.getByRole('status')).toContainText('Hosted queue unavailable');
+  await page.getByLabel('Delivery mode', { exact: true }).selectOption('live');
+  await expect(
+    page.getByText('Live delivery is locked until hosted testing is complete', { exact: false }),
+  ).toBeVisible();
+  expect(
+    await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth),
+  ).toBeTruthy();
+  const results = await new AxeBuilder({ page }).analyze();
+  expect(results.violations).toEqual([]);
+  await page.screenshot({ path: 'test-results/queue-mobile-test.png', fullPage: true });
+});

@@ -36,7 +36,8 @@ export function Integration() {
   const w = useWorkspace(),
     state = w.integration,
     toast = useToast(),
-    [mode, setMode] = useState<string | null>(null);
+    [mode, setMode] = useState<string | null>(null),
+    [checkBusy, setCheckBusy] = useState(false);
   if (state.loading && !state.data) return <Loading />;
   if (state.error) return <ErrorState error={state.error} retry={state.refresh} />;
   if (!state.data) return null;
@@ -70,13 +71,21 @@ export function Integration() {
         <div>
           <h2>{d.connected ? 'Meta credentials configured' : 'Meta is disconnected'}</h2>
           <p>
-            {d.connected
-              ? `Configured for ${s.mode} mode. Check Events Manager to verify real delivery and complete funnel setup.`
-              : 'Add your credentials on the server to receive leads and send outcomes. Your CRM remains usable.'}
+            {s.mode === 'live' && d.live_allowed === false
+              ? 'Live outcome delivery is paused by the server lock. Leads remain saved in your CRM.'
+              : d.connected
+                ? `Configured for ${s.mode} mode. Check Events Manager to verify real delivery and complete funnel setup.`
+                : 'Add your credentials on the server to receive leads and send outcomes. Your CRM remains usable.'}
           </p>
         </div>
         <span className="badge">
-          {s.mode === 'demo' ? 'Demo mode' : s.mode === 'test' ? 'Meta test mode' : 'Live mode'}
+          {s.mode === 'demo'
+            ? 'Demo mode'
+            : s.mode === 'test'
+              ? 'Meta test mode'
+              : d.live_allowed === false
+                ? 'Live delivery paused'
+                : 'Live mode'}
         </span>
       </div>
       <div className="integration-grid">
@@ -276,7 +285,11 @@ export function Integration() {
               {d.worker.kind === 'queue' && d.worker.configured && (
                 <Button
                   variant="outline"
+                  disabled={checkBusy}
+                  aria-busy={checkBusy}
                   onClick={async () => {
+                    if (checkBusy) return;
+                    setCheckBusy(true);
                     try {
                       await post('/integration/queue/check', {});
                       toast('Background check queued');
@@ -284,6 +297,8 @@ export function Integration() {
                     } catch (error) {
                       toast(error instanceof Error ? error.message : 'Background check failed');
                       state.refresh();
+                    } finally {
+                      setCheckBusy(false);
                     }
                   }}
                 >
