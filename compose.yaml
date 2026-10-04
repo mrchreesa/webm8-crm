@@ -1,0 +1,48 @@
+services:
+  web:
+    build: .
+    env_file: .env
+    environment:
+      NODE_ENV: production
+      DATABASE_PATH: /app/data/crm.sqlite
+      PORT: 3001
+    volumes:
+      - crm-data:/app/data
+    ports:
+      - '127.0.0.1:3001:3001'
+    restart: unless-stopped
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'node',
+          '-e',
+          "fetch('http://localhost:3001/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
+        ]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+  worker:
+    build: .
+    command: ['npm', 'run', 'worker']
+    env_file: .env
+    environment:
+      NODE_ENV: production
+      DATABASE_PATH: /app/data/crm.sqlite
+    volumes:
+      - crm-data:/app/data
+    restart: unless-stopped
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'node',
+          '--input-type=module',
+          '-e',
+          "import Database from 'better-sqlite3'; const db=new Database('/app/data/crm.sqlite',{readonly:true}); const r=db.prepare('SELECT heartbeat_at FROM worker_health WHERE id=1').get(); process.exit(r && Date.now()-Date.parse(r.heartbeat_at)<90000?0:1)",
+        ]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+volumes:
+  crm-data:

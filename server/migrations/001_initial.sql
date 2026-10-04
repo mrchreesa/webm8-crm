@@ -1,0 +1,54 @@
+CREATE TABLE settings (key TEXT PRIMARY KEY, value TEXT NOT NULL);
+CREATE TABLE leads (
+  id TEXT PRIMARY KEY, source TEXT NOT NULL CHECK(source IN ('meta_instant_form','manual','demo')),
+  meta_lead_id TEXT UNIQUE CHECK(meta_lead_id IS NULL OR typeof(meta_lead_id)='text'),
+  page_id TEXT, form_id TEXT, form_name TEXT NOT NULL DEFAULT '', ad_id TEXT, adset_id TEXT, campaign_id TEXT,
+  name TEXT NOT NULL, email TEXT NOT NULL DEFAULT '', phone TEXT NOT NULL DEFAULT '',
+  meta_submitted_at TEXT, received_at TEXT NOT NULL, stage TEXT NOT NULL,
+  appointment_at TEXT, follow_up_at TEXT, sale_minor INTEGER CHECK(sale_minor IS NULL OR sale_minor>=0),
+  currency TEXT NOT NULL DEFAULT 'GBP', reason TEXT NOT NULL DEFAULT '',
+  form_answers TEXT NOT NULL DEFAULT '[]', qualification TEXT NOT NULL DEFAULT '[]',
+  is_demo INTEGER NOT NULL DEFAULT 0, is_test INTEGER NOT NULL DEFAULT 0,
+  created_at TEXT NOT NULL, updated_at TEXT NOT NULL, version INTEGER NOT NULL DEFAULT 1
+);
+CREATE TABLE stage_history (
+  seq INTEGER PRIMARY KEY AUTOINCREMENT, id TEXT UNIQUE NOT NULL,
+  lead_id TEXT NOT NULL REFERENCES leads(id) ON DELETE CASCADE,
+  previous_stage TEXT, new_stage TEXT NOT NULL, occurred_at TEXT NOT NULL, recorded_at TEXT NOT NULL,
+  changed_by TEXT NOT NULL, correction_reason TEXT
+);
+CREATE TABLE milestones (
+  lead_id TEXT NOT NULL REFERENCES leads(id) ON DELETE CASCADE, stage TEXT NOT NULL,
+  history_id TEXT NOT NULL REFERENCES stage_history(id) ON DELETE CASCADE, occurred_at TEXT NOT NULL,
+  PRIMARY KEY(lead_id, stage)
+);
+CREATE TABLE notes (
+  id TEXT PRIMARY KEY, lead_id TEXT NOT NULL REFERENCES leads(id) ON DELETE CASCADE,
+  text TEXT NOT NULL, author TEXT NOT NULL, created_at TEXT NOT NULL
+);
+CREATE TABLE outbox (
+  seq INTEGER PRIMARY KEY AUTOINCREMENT, event_id TEXT UNIQUE NOT NULL,
+  lead_id TEXT NOT NULL REFERENCES leads(id) ON DELETE CASCADE,
+  history_id TEXT UNIQUE NOT NULL REFERENCES stage_history(id) ON DELETE CASCADE,
+  event_name TEXT NOT NULL, event_time INTEGER NOT NULL, payload TEXT NOT NULL,
+  mode TEXT NOT NULL CHECK(mode IN ('demo','test','live')), dataset_id TEXT NOT NULL,
+  test_event_code TEXT, status TEXT NOT NULL CHECK(status IN ('pending','processing','accepted','failed','expired','suppressed')),
+  attempts INTEGER NOT NULL DEFAULT 0, next_attempt_at TEXT NOT NULL,
+  lease_until TEXT, lease_token TEXT, last_error TEXT, response_trace_id TEXT, response_messages TEXT,
+  accepted_at TEXT, created_at TEXT NOT NULL
+);
+CREATE TABLE inbox (
+  seq INTEGER PRIMARY KEY AUTOINCREMENT, meta_lead_id TEXT UNIQUE NOT NULL,
+  notification TEXT NOT NULL, received_at TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'pending', attempts INTEGER NOT NULL DEFAULT 0,
+  next_attempt_at TEXT NOT NULL, lease_until TEXT, lease_token TEXT, last_error TEXT, lead_id TEXT
+);
+CREATE TABLE sessions (token_hash TEXT PRIMARY KEY, csrf_token TEXT NOT NULL, expires_at TEXT NOT NULL);
+CREATE TABLE deleted_leads (id_hash TEXT PRIMARY KEY, deleted_at TEXT NOT NULL);
+CREATE TABLE worker_health (id INTEGER PRIMARY KEY CHECK(id=1), heartbeat_at TEXT NOT NULL);
+CREATE INDEX leads_received ON leads(received_at);
+CREATE INDEX leads_follow_up ON leads(follow_up_at);
+CREATE INDEX history_lead ON stage_history(lead_id, occurred_at, seq);
+CREATE INDEX outbox_ready ON outbox(status,next_attempt_at);
+CREATE INDEX outbox_order ON outbox(lead_id,event_time,seq);
+CREATE INDEX inbox_ready ON inbox(status,next_attempt_at);
