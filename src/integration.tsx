@@ -152,6 +152,12 @@ export function Integration() {
                     Existing demo and test events stay in their original mode. They are never
                     promoted to live.
                   </p>
+                  {d.live_allowed === false && (
+                    <p>
+                      Live delivery is locked until hosted testing is complete and live delivery is
+                      enabled on the server.
+                    </p>
+                  )}
                 </div>
               )}
               <Field
@@ -194,8 +200,8 @@ export function Integration() {
             </div>
             <div className="panel-content">
               <p className="muted">
-                Credentials are read from server environment variables. After changing them, restart
-                the web service and worker.
+                Credentials are read from server environment variables. After changing them,
+                redeploy the hosted app or restart the web service and worker.
               </p>
               <div className="credential-list">
                 {secrets.map(([key, label]) => (
@@ -251,15 +257,39 @@ export function Integration() {
             <Radio size={21} />
             <div>
               <h3>
-                {d.worker.running
-                  ? 'Background worker is running'
-                  : 'Background worker is not reporting'}
+                {d.worker.kind === 'queue'
+                  ? d.worker.configured
+                    ? 'Hosted background queue configured'
+                    : 'Hosted background queue is missing'
+                  : d.worker.running
+                    ? 'Background worker is running'
+                    : 'Background worker is not reporting'}
               </h3>
               <p>
-                {d.worker.last_seen
-                  ? `Last seen ${date(d.worker.last_seen)}`
-                  : 'Start npm run worker. Delivery continues with the browser closed.'}
+                {d.worker.error ||
+                  (d.worker.last_seen
+                    ? `Last seen ${date(d.worker.last_seen)}`
+                    : d.worker.kind === 'queue'
+                      ? 'Awaiting the first background check. Delivery continues with the browser closed.'
+                      : 'Start npm run worker. Delivery continues with the browser closed.')}
               </p>
+              {d.worker.kind === 'queue' && d.worker.configured && (
+                <Button
+                  variant="outline"
+                  onClick={async () => {
+                    try {
+                      await post('/integration/queue/check', {});
+                      toast('Background check queued');
+                      state.refresh();
+                    } catch (error) {
+                      toast(error instanceof Error ? error.message : 'Background check failed');
+                      state.refresh();
+                    }
+                  }}
+                >
+                  Check background delivery
+                </Button>
+              )}
             </div>
           </section>
           <Link className="guide-card" to={w.link('/guide')}>

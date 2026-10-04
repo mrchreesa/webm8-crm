@@ -1,7 +1,7 @@
-import { getConfig } from './config';
-import { openConfiguredDatabase } from './db';
-import { retrieveOne } from './meta';
-import { deliverOne, expireEvents } from './outbox';
+import { getConfig } from './config.js';
+import { openConfiguredDatabase } from './db.js';
+import { retrieveOne } from './meta.js';
+import { deliverOne, expireEvents } from './outbox.js';
 const cfg = getConfig(),
   db = await openConfiguredDatabase(cfg);
 let stopping = false;

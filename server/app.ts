@@ -5,9 +5,9 @@ import { rateLimit } from 'express-rate-limit';
 import { z } from 'zod';
 import { resolve } from 'node:path';
 import { existsSync } from 'node:fs';
-import { STAGES, type Lead, type Settings } from '../src/domain';
-import type { Config } from './config';
-import { type DB, settings, saveSettings } from './db';
+import { STAGES, type Settings } from '../src/domain.js';
+import type { Config } from './config.js';
+import { type DB, settings, saveSettings, safeInteger } from './db.js';
 import {
   createSession,
   requireOwner,
@@ -15,8 +15,8 @@ import {
   requireSameOrigin,
   session,
   verifyPassword,
-} from './auth';
-import { persistWebhook, validSignature } from './meta';
+} from './auth.js';
+import { persistWebhook, validSignature } from './meta.js';
 import {
   createLead,
   changeStage,
@@ -26,12 +26,14 @@ import {
   deleteLead,
   publicEvent,
   AppError,
-} from './leads';
-import { CSV_FIELDS, previewCSV, importCSV, exportCSV } from './csv';
-import { expireEvents, retryEvent } from './outbox';
-import { londonRange } from './time';
-import { sha256 } from './matching';
-import { LoginLimitStore } from './login-limits';
+} from './leads.js';
+import { CSV_FIELDS, previewCSV, importCSV, exportCSVChunks, exportLeadBatches } from './csv.js';
+import { once } from 'node:events';
+import { expireEvents, retryEvent } from './outbox.js';
+import { londonRange } from './time.js';
+import { sha256 } from './matching.js';
+import { LoginLimitStore } from './login-limits.js';
+import { wakeQueue } from './jobs.js';
 const text = z.string().max(500),
   date = z.string().max(60),
   email = z
@@ -94,7 +96,26 @@ export function createApp(db: DB, cfg: Config) {
       strictTransportSecurity: cfg.production ? undefined : false,
     }),
   );
-  app.get('/api/health', (_req, res) => res.json({ ok: true }));
+  app.get('/api/health', async (_req, res) => {
+    await db.prepare('SELECT 1').get();
+    res.set('Cache-Control', 'no-store').json({ ok: true });
+  });
+  // Vercel sends CRON_SECRET as a bearer token. Recovery is independent of queue publication.
+  app.get('/api/cron/recover', async (req, res) => {
+    if (
+      !cfg.hosted ||
+      !cfg.cronSecret ||
+      sha256(req.get('authorization') || '') !== sha256(`Bearer ${cfg.cronSecret}`)
+    ) {
+      res.status(401).json({ error: 'Unauthorized.' });
+      return;
+    }
+    await db.prepare('DELETE FROM sessions WHERE expires_at<=?').run(new Date().toISOString());
+    await db.prepare('DELETE FROM login_limits WHERE expires_at<=?').run(new Date().toISOString());
+    await expireEvents(db);
+    await wakeQueue(db, cfg);
+    res.set('Cache-Control', 'no-store').json({ queued: true });
+  });
   app.get('/api/webhooks/meta', (req, res) => {
     if (!cfg.verifyToken) {
       res.status(503).send('Webhook verification is not configured.');
@@ -122,6 +143,8 @@ export function createApp(db: DB, cfg: Config) {
       }
       try {
         await persistWebhook(db, cfg, req.body);
+        // Persist first. A failed publish returns 503, so Meta can safely replay its notification.
+        await wakeQueue(db, cfg);
         res.sendStatus(200);
       } catch (e) {
         next(e);
@@ -193,9 +216,13 @@ export function createApp(db: DB, cfg: Config) {
     await expireEvents(db);
     const range = londonRange(queryText(req.query.from), queryText(req.query.to)),
       demo = queryText(req.query.data) === 'demo';
-    const cohort = (await db
-      .prepare('SELECT * FROM leads WHERE received_at>=? AND received_at<? AND is_demo=?')
-      .all(range.from, range.to, demo ? 1 : 0)) as Lead[];
+    const cohort = await db
+      .prepare(
+        `SELECT COUNT(*) AS n,
+      COALESCE(SUM(CASE WHEN stage='Won' THEN COALESCE(sale_minor,0) ELSE 0 END),0) AS sales_minor
+      FROM leads WHERE received_at>=? AND received_at<? AND is_demo=?`,
+      )
+      .get(range.from, range.to, demo ? 1 : 0);
     const reached = async (stage: string) =>
       (await db
         .prepare(
@@ -218,13 +245,11 @@ export function createApp(db: DB, cfg: Config) {
       )
       .all(range.from, range.to, demo ? 1 : 0);
     res.json({
-      received: cohort.length,
+      received: cohort.n,
       qualified: (await reached('Qualified')).n,
       appointments: (await reached('Appointment Booked')).n,
       won: (await reached('Won')).n,
-      sales_minor: cohort
-        .filter((l) => l.stage === 'Won')
-        .reduce((sum, l) => sum + (l.sale_minor || 0), 0),
+      sales_minor: safeInteger(String(cohort.sales_minor)),
       events: Object.fromEntries(counts.map((c) => [c.status, c.n])),
       followups,
       recent,
@@ -280,21 +305,29 @@ export function createApp(db: DB, cfg: Config) {
     res.json({ rows, total, page, page_size: p.size, forms });
   });
   app.get('/api/leads/export', async (req, res) => {
+    const closed = new AbortController();
+    res.once('close', () => closed.abort());
+    const write = async (chunk: string) => {
+      if (res.destroyed) throw new AppError('Export connection closed.');
+      if (!res.write(chunk)) await once(res, 'drain', { signal: closed.signal });
+    };
     if (req.query.format === 'json') {
-      res.set('Content-Disposition', 'attachment; filename="webm8-leads.json"').json({
-        exported_at: new Date().toISOString(),
-        leads: await Promise.all(
-          ((await db.prepare('SELECT id FROM leads').all()) as { id: string }[]).map(
-            async (l) => await leadDetail(db, l.id),
-          ),
-        ),
-      });
+      res
+        .set('Content-Disposition', 'attachment; filename="webm8-leads.json"')
+        .type('application/json');
+      await write(`{"exported_at":${JSON.stringify(new Date().toISOString())},"leads":[`);
+      let first = true;
+      for await (const leads of exportLeadBatches(db))
+        for (const lead of leads) {
+          await write(`${first ? '' : ','}${JSON.stringify(await leadDetail(db, lead.id))}`);
+          first = false;
+        }
+      res.end(']}');
       return;
     }
-    res
-      .set('Content-Disposition', 'attachment; filename="webm8-leads.csv"')
-      .type('text/csv')
-      .send(await exportCSV(db));
+    res.set('Content-Disposition', 'attachment; filename="webm8-leads.csv"').type('text/csv');
+    for await (const chunk of exportCSVChunks(db)) await write(chunk);
+    res.end();
   });
   app.post('/api/leads', async (req, res) => {
     const data = z
@@ -313,11 +346,17 @@ export function createApp(db: DB, cfg: Config) {
   app.patch('/api/leads/:id', async (req, res) =>
     res.json(await editLead(db, String(req.params.id), editSchema.parse(req.body))),
   );
-  app.post('/api/leads/:id/stage', async (req, res) =>
-    res.json(
-      await changeStage(db, cfg, String(req.params.id), stageSchema.parse(req.body), cfg.ownerName),
-    ),
-  );
+  app.post('/api/leads/:id/stage', async (req, res) => {
+    const result = await changeStage(
+      db,
+      cfg,
+      String(req.params.id),
+      stageSchema.parse(req.body),
+      cfg.ownerName,
+    );
+    await wakeQueue(db, cfg).catch(() => {});
+    res.json(result);
+  });
   app.post('/api/leads/:id/notes', async (req, res) => {
     const data = z.object({ text: z.string().trim().min(1).max(10000) }).parse(req.body);
     res.status(201).json(await addNote(db, String(req.params.id), data.text, cfg.ownerName));
@@ -337,7 +376,9 @@ export function createApp(db: DB, cfg: Config) {
   });
   app.post('/api/import/commit', async (req, res) => {
     const d = csvSchema.parse(req.body);
-    res.json(await importCSV(db, cfg, d.csv, d.mapping, d.source, cfg.ownerName));
+    const result = await importCSV(db, cfg, d.csv, d.mapping, d.source, cfg.ownerName);
+    await wakeQueue(db, cfg).catch(() => {});
+    res.json(result);
   });
   app.get('/api/integration', async (_req, res) => {
     const s = await settings(db, cfg),
@@ -352,6 +393,7 @@ export function createApp(db: DB, cfg: Config) {
     const heartbeat = (await db
       .prepare('SELECT heartbeat_at FROM worker_health WHERE id=1')
       .get()) as { heartbeat_at: string } | undefined;
+    const queueHealth = await db.prepare('SELECT * FROM queue_health WHERE id=1').get();
     res.json({
       settings: s,
       has_demo_data: !!(await db
@@ -369,9 +411,17 @@ export function createApp(db: DB, cfg: Config) {
         !!cfg.pageId &&
         !!s.dataset_id,
       worker: {
-        last_seen: heartbeat?.heartbeat_at || null,
-        running: !!heartbeat && Date.now() - Date.parse(heartbeat.heartbeat_at) < 90000,
+        kind: cfg.hosted ? 'queue' : 'process',
+        configured: cfg.hosted ? cfg.queueEnabled : true,
+        last_seen: cfg.hosted
+          ? queueHealth?.last_processed_at || null
+          : heartbeat?.heartbeat_at || null,
+        running: cfg.hosted
+          ? false
+          : !!heartbeat && Date.now() - Date.parse(heartbeat.heartbeat_at) < 90000,
+        error: cfg.hosted ? queueHealth?.last_error || null : null,
       },
+      live_allowed: cfg.allowLive,
       errors: await db
         .prepare(
           "SELECT 'delivery' AS kind,event_id AS id,last_error AS error,created_at FROM outbox WHERE last_error IS NOT NULL AND status IN ('failed','pending') UNION ALL SELECT 'retrieval' AS kind,CAST(seq AS TEXT) AS id,last_error AS error,received_at AS created_at FROM inbox WHERE last_error IS NOT NULL AND status IN ('pending','failed') ORDER BY created_at DESC LIMIT 10",
@@ -411,10 +461,15 @@ export function createApp(db: DB, cfg: Config) {
       );
     if (d.mode === 'test' && !cfg.testEventCode)
       throw new AppError('Set META_TEST_EVENT_CODE on the server before enabling test mode.');
+    if (d.mode === 'live' && !cfg.allowLive)
+      throw new AppError(
+        'Live delivery is locked on this deployment. Finish hosted testing, then explicitly enable META_LIVE_ENABLED on the production server.',
+      );
     if (d.mode === 'live' && (await settings(db, cfg)).mode !== 'live' && !d.enable_live)
       throw new AppError('Explicitly confirm live delivery before enabling it.');
     const { enable_live, ...value } = d;
     await saveSettings(db, value as Settings);
+    await wakeQueue(db, cfg).catch(() => {});
     res.json({ saved: true });
   });
   app.post('/api/integration/retrieval/:id/retry', async (req, res) => {
@@ -426,6 +481,7 @@ export function createApp(db: DB, cfg: Config) {
       )
       .run(new Date().toISOString(), String(req.params.id));
     if (!result.changes) throw new AppError('This retrieval cannot be retried.');
+    await wakeQueue(db, cfg).catch(() => {});
     res.json({ queued: true });
   });
   app.get('/api/events', async (req, res) => {
@@ -461,16 +517,27 @@ export function createApp(db: DB, cfg: Config) {
       page_size: p.size,
     });
   });
-  app.post('/api/events/:id/retry', async (req, res) =>
-    res.json(await retryEvent(db, cfg, String(req.params.id))),
-  );
+  app.post('/api/events/:id/retry', async (req, res) => {
+    const result = await retryEvent(db, cfg, String(req.params.id));
+    await wakeQueue(db, cfg).catch(() => {});
+    res.json(result);
+  });
+  app.post('/api/integration/queue/check', async (_req, res) => {
+    if (!cfg.hosted || !cfg.queueEnabled) throw new AppError('Hosted queue is not configured.');
+    await wakeQueue(db, cfg);
+    res.json({ queued: true });
+  });
   app.use('/api', (_req, res) => res.status(404).json({ error: 'This API route does not exist.' }));
-  if (existsSync(resolve('dist/index.html'))) {
+  if (!cfg.hosted && existsSync(resolve('dist/index.html'))) {
     app.use(express.static(resolve('dist'), { index: false }));
     app.get('/{*path}', (_req, res) => res.sendFile(resolve('dist/index.html')));
   }
   app.use(
     (error: unknown, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
+      if (res.headersSent) {
+        res.destroy();
+        return;
+      }
       if (error instanceof z.ZodError) {
         const fields = Object.fromEntries(error.issues.map((i) => [i.path.join('.'), i.message]));
         res.status(400).json({ error: 'Check the highlighted fields.', fields });

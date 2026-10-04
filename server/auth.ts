@@ -1,8 +1,8 @@
 import { randomBytes, scryptSync, timingSafeEqual } from 'node:crypto';
 import type { Request, Response, NextFunction } from 'express';
-import type { DB } from './db';
-import type { Config } from './config';
-import { sha256 } from './matching';
+import type { DB } from './db.js';
+import type { Config } from './config.js';
+import { sha256 } from './matching.js';
 export function hashPassword(password: string) {
   const salt = randomBytes(16).toString('hex');
   return `scrypt:${salt}:${scryptSync(password, salt, 64).toString('hex')}`;

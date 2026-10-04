@@ -1,12 +1,12 @@
 import { parse } from 'csv-parse/sync';
 import { stringify } from 'csv-stringify/sync';
-import type { DB } from './db';
-import { settings } from './db';
-import type { Config } from './config';
-import { createLead, changeStage, AppError, type LeadInput } from './leads';
-import { metaId, normalizeEmail, sha256 } from './matching';
-import { instant, nowISO } from './time';
-import { STAGES, type Stage, type Lead } from '../src/domain';
+import type { DB } from './db.js';
+import { settings } from './db.js';
+import type { Config } from './config.js';
+import { createLead, changeStage, AppError, type LeadInput } from './leads.js';
+import { metaId, normalizeEmail, sha256 } from './matching.js';
+import { instant, nowISO } from './time.js';
+import { STAGES, type Stage, type Lead } from '../src/domain.js';
 export const CSV_FIELDS = [
   'name',
   'email',
@@ -270,46 +270,66 @@ export async function importCSV(
 }
 // Quoted CSV keeps IDs as exact text. Spreadsheet programs must import ID columns as Text.
 // Formula-leading personal fields are neutralised to prevent spreadsheet formula injection.
-export async function exportCSV(db: DB): Promise<string> {
-  const columns = [
-    'id',
-    'source',
-    'meta_lead_id',
-    'page_id',
-    'form_id',
-    'form_name',
-    'ad_id',
-    'adset_id',
-    'campaign_id',
-    'name',
-    'email',
-    'phone',
-    'meta_submitted_at',
-    'received_at',
-    'stage',
-    'appointment_at',
-    'follow_up_at',
-    'sale_minor',
-    'currency',
-    'reason',
-    'is_demo',
-    'is_test',
-    'created_at',
-    'updated_at',
-  ];
-  const rows = (await db.prepare('SELECT * FROM leads ORDER BY received_at').all()) as Lead[];
+const exportColumns = [
+  'id',
+  'source',
+  'meta_lead_id',
+  'page_id',
+  'form_id',
+  'form_name',
+  'ad_id',
+  'adset_id',
+  'campaign_id',
+  'name',
+  'email',
+  'phone',
+  'meta_submitted_at',
+  'received_at',
+  'stage',
+  'appointment_at',
+  'follow_up_at',
+  'sale_minor',
+  'currency',
+  'reason',
+  'is_demo',
+  'is_test',
+  'created_at',
+  'updated_at',
+];
+function csvChunk(rows: Lead[], header: boolean) {
   return stringify(
     rows.map((row) =>
       Object.fromEntries(
-        columns.map((c) => {
+        exportColumns.map((c) => {
           const v = (row as any)[c];
           return [
             c,
-            typeof v === 'string' && /^[=+@\-\t\r]/.test(v) && !c.endsWith('_at') ? "'" + v : v,
+            typeof v === 'string' && /^[=+@\t\r-]/.test(v) && !c.endsWith('_at') ? "'" + v : v,
           ];
         }),
       ),
     ),
-    { header: true, columns, quoted: true },
+    { header, columns: exportColumns, quoted: true },
   );
+}
+export async function* exportLeadBatches(db: DB) {
+  const cutoff = nowISO();
+  let cursor = '';
+  while (true) {
+    const rows = (await db
+      .prepare('SELECT * FROM leads WHERE id>? AND created_at<=? ORDER BY id LIMIT 100')
+      .all(cursor, cutoff)) as Lead[];
+    if (!rows.length) return;
+    yield rows;
+    cursor = rows.at(-1)!.id;
+  }
+}
+export async function* exportCSVChunks(db: DB) {
+  yield csvChunk([], true);
+  for await (const rows of exportLeadBatches(db)) yield csvChunk(rows, false);
+}
+export async function exportCSV(db: DB): Promise<string> {
+  const chunks: string[] = [];
+  for await (const chunk of exportCSVChunks(db)) chunks.push(chunk);
+  return chunks.join('');
 }

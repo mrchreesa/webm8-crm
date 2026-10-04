@@ -11,8 +11,7 @@
     "esModuleInterop": true,
     "skipLibCheck": true,
     "resolveJsonModule": true,
-    "noEmit": true,
-    "types": ["node", "vite/client"]
+    "noEmit": true
   },
-  "include": ["src", "server", "scripts", "tests", "vite.config.ts", "playwright.config.ts"]
+  "include": ["src", "server", "api", "scripts", "tests", "vite.config.ts", "playwright.config.ts"]
 }

@@ -1,5 +1,5 @@
-import type { DB } from './db';
-import { sha256 } from './matching';
+import type { DB } from './db.js';
+import { sha256 } from './matching.js';
 
 const tables = [
   'settings',

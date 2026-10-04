@@ -31,3 +31,7 @@ Deletion cascades through all lead personal data, notes, history, milestones and
 Back up using SQLite's online backup API or `.backup` command, **never just copy the active main file and discard its WAL**. Protect the whole volume and `.env`. Restore into a stopped web/worker environment, retain event IDs, then restart. An accepted event sent after the backup could be retried on restoration; its stable ID supports deduplication. Test restoration and watch the worker heartbeat; supervisor health alone is not proof of event delivery.
 
 For Neon migration, restore limits and the pending Vercel worker adaptation, see [NEON.md](NEON.md).
+
+## Vercel runtime
+
+The hosted runtime uses Neon only, private Vercel queue wakeups and bounded worker cycles. SQL remains authoritative for leases, stable payloads, ordering, retries and expiry. Daily authenticated cron recovers database commits whose publication was interrupted. Preview APIs are isolated; live delivery requires the production server lock to be enabled as well as explicit owner mode selection. See [Vercel deployment](VERCEL.md).

@@ -6,11 +6,11 @@ import {
   type History,
   type OutboxEvent,
   type Note,
-} from '../src/domain';
-import { settings, type DB } from './db';
-import type { Config } from './config';
-import { instant, nowISO } from './time';
-import { matchingIdentifiers, metaId, sha256 } from './matching';
+} from '../src/domain.js';
+import { settings, type DB } from './db.js';
+import type { Config } from './config.js';
+import { instant, nowISO } from './time.js';
+import { matchingIdentifiers, metaId, sha256 } from './matching.js';
 export class AppError extends Error {
   constructor(
     message: string,

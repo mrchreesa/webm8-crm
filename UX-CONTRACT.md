@@ -56,3 +56,7 @@ Pessimistic writes; duplicate-submit guards. Remote reads use AbortController an
 ## Verification
 
 Typecheck, build, unit/integration tests, Playwright full-flow and accessibility checks, design lint and strict premium audit. Browser matrix: desktop and narrow mobile, keyboard, empty, failed requests, session expiry, reduced motion. Sibling comparison: leads and sync tables; lead and integration forms. Evidence: tests/crm.test.ts and tests/ui.spec.ts.
+
+## Hosted delivery status
+
+On Vercel, Integration distinguishes a configured private queue from a continuously running process. It shows the last completed queue cycle and persistent publication failures, and offers an authenticated background check. A server live lock is shown beside the existing explicit live confirmation. Source: docs/VERCEL.md and server/jobs.ts.

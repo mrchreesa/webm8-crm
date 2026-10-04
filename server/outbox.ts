@@ -1,10 +1,10 @@
 import { randomUUID } from 'node:crypto';
-import type { OutboxEvent } from '../src/domain';
-import type { DB } from './db';
-import { settings } from './db';
-import type { Config } from './config';
-import { backoffMs, graphRequest, MetaError } from './meta';
-import { AppError } from './leads';
+import type { OutboxEvent } from '../src/domain.js';
+import type { DB } from './db.js';
+import { settings } from './db.js';
+import type { Config } from './config.js';
+import { backoffMs, graphRequest, MetaError } from './meta.js';
+import { AppError } from './leads.js';
 export async function expireEvents(db: DB, now = Date.now()) {
   await db
     .prepare(
@@ -27,7 +27,7 @@ export async function claimEvent(
         )
         .run(iso);
       await expireEvents(db, now);
-      if (mode === 'demo') return;
+      if (mode === 'demo' || (mode === 'live' && !cfg.allowLive)) return;
       const event = (await db
         .prepare(
           `SELECT o.* FROM outbox o JOIN leads l ON l.id=o.lead_id

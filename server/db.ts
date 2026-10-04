@@ -1,10 +1,10 @@
-import SQLite from 'better-sqlite3';
+import { attachDatabasePool } from '@vercel/functions';
 import { Pool, types } from 'pg';
 import { AsyncLocalStorage } from 'node:async_hooks';
 import { mkdirSync, readdirSync, readFileSync, chmodSync } from 'node:fs';
 import { dirname } from 'node:path';
-import type { Config } from './config';
-import { EVENT_NAMES, type Settings } from '../src/domain';
+import type { Config } from './config.js';
+import { EVENT_NAMES, type Settings } from '../src/domain.js';
 export interface QueryResult {
   rows: any[];
   rowCount: number;
@@ -140,6 +140,7 @@ export async function migrateDatabase(db: DB) {
     .immediate();
 }
 export async function openDatabase(path: string): Promise<DB> {
+  const { default: SQLite } = await import('better-sqlite3');
   if (path !== ':memory:') mkdirSync(dirname(path), { recursive: true, mode: 0o700 });
   const sqlite = new SQLite(path);
   if (path !== ':memory:') chmodSync(path, 0o600);
@@ -197,6 +198,7 @@ export async function openPostgres(url: string): Promise<DB> {
   pool.on('error', () =>
     console.error('PostgreSQL connection interrupted. Check database availability.'),
   );
+  if (process.env.VERCEL === '1') attachDatabasePool(pool);
   const query = async (client: Pool | import('pg').PoolClient, sql: string, values: unknown[]) => {
     const r = await client.query(sql, values);
     if (Array.isArray(r))
@@ -229,6 +231,10 @@ export async function openPostgres(url: string): Promise<DB> {
   }
 }
 export function openConfiguredDatabase(cfg: Config) {
+  if (cfg.hosted && !cfg.databaseUrl)
+    throw new Error(
+      'Set the server-side DATABASE_URL in Vercel. SQLite is only supported locally.',
+    );
   return cfg.databaseUrl ? openPostgres(cfg.databaseUrl) : openDatabase(cfg.databasePath);
 }
 export async function settings(db: DB, cfg: Config): Promise<Settings> {

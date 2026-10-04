@@ -1,10 +1,10 @@
 import { createHmac, timingSafeEqual, randomUUID } from 'node:crypto';
 import JSONbig from 'json-bigint';
-import type { Config } from './config';
-import { settings, type DB } from './db';
-import { metaId, sha256 } from './matching';
-import { createLead, AppError } from './leads';
-import { nowISO } from './time';
+import type { Config } from './config.js';
+import { settings, type DB } from './db.js';
+import { metaId, sha256 } from './matching.js';
+import { createLead, AppError } from './leads.js';
+import { nowISO } from './time.js';
 // All numeric JSON tokens are parsed as strings; IDs never enter JavaScript Number.
 export const losslessJSON = JSONbig({ storeAsString: true, alwaysParseAsBig: true, strict: true });
 export function validSignature(raw: Buffer, signature: string | undefined, secret: string) {

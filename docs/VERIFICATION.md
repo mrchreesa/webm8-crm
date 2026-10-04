@@ -4,7 +4,7 @@ Verified on 4 October 2026 (Europe/London) with Node.js 22.22.0. Automated tests
 
 ## Results
 
-- 34 server/domain/migration tests passed (`npm test`): the CRM suite on SQLite, plus PostgreSQL transfer tests.
+- 37 server/domain/migration/hosted-queue tests passed (`npm test`): the CRM suite on SQLite, plus PostgreSQL transfer tests.
 - 32 CRM tests passed against PostgreSQL through PGlite (`npm run test:postgres`).
 - Real Neon TLS connection, cross-connection write locking and rollback passed; application migration and authenticated HTTP checks passed.
 - 6 browser tests passed (`npm run test:e2e`).
@@ -57,10 +57,24 @@ Migration tests verify copied notes/history, accepted event identity, test mode,
 
 The signed webhook → persistent inbox → Graph retrieval → atomic New milestone/outbox → background CAPI delivery loop has passed with a genuine Meta test lead. **Live CAPI delivery and ordinary customer submissions have not been tested.** The app is Published with owner approval; the owner explicitly chose to keep delivery in test mode until permanent hosting is ready. Live remains disabled. Existing test-only leads must never be promoted to Live.
 
-The existing WebM8 privacy policy URL is saved in app settings. Review its description of website enquiries for the actual Meta lead/outcome processing before live use. Permanent hosting and the dataset's Meta sales funnel, validation and advertising configuration remain outstanding. Events Manager's CRM verification/funnel workflow is distinct from the API's accepted test response; do not claim that workflow is complete.
+The existing WebM8 privacy policy URL is saved in app settings. Review its description of website enquiries for the actual Meta lead/outcome processing before live use. The dataset's Meta sales funnel, validation and advertising configuration remain outstanding; permanent Vercel hosting is verified below. Events Manager's CRM verification/funnel workflow is distinct from the API's accepted test response; do not claim that workflow is complete.
 
 Only initial receipt has been sent for the genuine lead. Subsequent stage delivery is covered by automated tests; real stage events should be sent when actual business milestones occur. API acceptance does not establish matching, attribution, funnel validation or advertising eligibility. These and the dataset's sales funnel remain account-side checks described in [the setup guide](SETUP.md).
 
 The Docker/Compose deployment configuration was inspected but could not be executed because Docker is unavailable in this workspace. Verify deployment health checks, HTTPS, volume persistence and supervised worker restart on the chosen host. The local web application and separate worker were run successfully.
 
 The latest production build completes successfully without a bundle-size advisory. Design-token lint has no errors and reports unused optional component tokens.
+
+## Permanent Vercel deployment (4 October 2026)
+
+The original deployment served only Vite files: API, authentication, webhook and deep-link paths returned 404. The repaired deployment serves CDN assets and SPA deep links, the authenticated Express API, and a private queue consumer. Neon remains the same persistent database; no original records or accepted events were recreated. Two additional leads arrived before the migration to the permanent callback, and were preserved along with the original two verification records.
+
+- Production variables were absent initially. Database, owner access and Meta configuration were installed server-side, with sensitive values protected. Preview has no production credentials and its API refuses production access. Credentials and private files were checked against tracked source and CDN assets.
+- Hosted `health`, owner session, Integration and Overview return 200; unauthenticated lead endpoints remain protected. Invalid webhook signatures return 401. Signed duplicate replay returns 200 and does not create a second lead/milestone. Both CSV and JSON export preserve exact string IDs. Exports now stream in bounded batches; dashboard totals use SQL aggregates.
+- The Mac worker was stopped before the hosted check. A private queue wakeup completed successfully, and the authenticated daily recovery endpoint returned 200. SQL leases and retries are additionally covered by PostgreSQL queue tests, including failed publication, duplicate redelivery, delayed retry, actionable failure repair, stable identity and live lock.
+- Meta verified the permanent callback `https://webm8-crm.vercel.app/api/webhooks/meta` on WebM8 CRM app `2410704026403835`. Its subscription remains Page `leadgen` at `v26.0`.
+- With owner approval, Meta's test slot was reset and a new genuine Meta test lead `1608903124054839` was created. Meta's Testing Tool reports **Success / Successful webhook integration** for this app. Its signed notification was received at `2026-10-04T09:26:27.833Z`, Graph retrieval completed on attempt one, and a single `CRM_NewLead` event was **Accepted by Meta** at `2026-10-04T09:26:30.070Z` on attempt one. Event ID `a216cec2-513c-44e5-af52-420f4a8275b8`, original event time `1791105989`, mode **test**. Intake/retrieval/delivery completed on Vercel without the Mac worker.
+- At this check, there are five lead records and five accepted initial test events, zero demo records, no positive milestones and no sales invented. Acceptance status does not establish matching, attribution, optimization eligibility or completed Meta funnel validation.
+- `META_LIVE_ENABLED=false` remains a server-side lock; Integration stays in test mode. Commercial hosting plan eligibility, privacy review, Meta funnel/advertising configuration, explicit live approval and the first real live outcome remain outstanding. See [Vercel live release](VERCEL.md).
+
+Screenshot evidence is held locally under `test-results/hosted-meta-test-success.png` and `test-results/vercel-integration.png`; these files are not committed because they depict account configuration.

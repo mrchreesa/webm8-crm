@@ -20,6 +20,11 @@ export interface Config {
   testEventCode: string;
   workerInterval: number;
   trustProxy: number;
+  hosted: boolean;
+  deployment: string;
+  queueEnabled: boolean;
+  cronSecret: string;
+  allowLive: boolean;
 }
 export function getConfig(env: NodeJS.ProcessEnv = process.env): Config {
   const graphVersion = env.META_GRAPH_VERSION || 'v26.0';
@@ -67,6 +72,14 @@ export function getConfig(env: NodeJS.ProcessEnv = process.env): Config {
     verifyToken: env.META_VERIFY_TOKEN || '',
     testEventCode: env.META_TEST_EVENT_CODE || '',
     workerInterval: Math.max(500, Number(env.WORKER_INTERVAL_MS || 3000)),
-    trustProxy: Number(env.TRUST_PROXY || 0),
+    trustProxy: Number(env.TRUST_PROXY || (env.VERCEL ? 1 : 0)),
+    hosted: env.VERCEL === '1',
+    deployment: env.VERCEL_ENV || 'local',
+    queueEnabled: env.CRM_QUEUE_ENABLED === 'true',
+    cronSecret: env.CRON_SECRET || '',
+    allowLive:
+      env.VERCEL === '1' || env.META_LIVE_ENABLED !== undefined
+        ? env.META_LIVE_ENABLED === 'true'
+        : true,
   };
 }

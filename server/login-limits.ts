@@ -1,6 +1,6 @@
 import type { Options, Store } from 'express-rate-limit';
-import type { DB } from './db';
-import { sha256 } from './matching';
+import type { DB } from './db.js';
+import { sha256 } from './matching.js';
 
 // Shared by all web instances; raw client IPs are never stored.
 export class LoginLimitStore implements Store {

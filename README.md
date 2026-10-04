@@ -57,3 +57,5 @@ npm run format:check
 Unit/integration tests use isolated temporary databases and fake Graph responses; the PostgreSQL suite runs PostgreSQL through PGlite. E2E uses an isolated synthetic workspace. Automated tests never send requests to Meta. Genuine Meta test-lead receipt and CAPI acceptance have been verified separately; **live customer delivery remains outstanding and disabled**. API acceptance is not evidence of matching, attribution, optimization eligibility or account-side funnel validation.
 
 See [the verification report](docs/VERIFICATION.md) for acceptance coverage and outstanding external checks.
+
+For Vercel hosting, see [the Vercel deployment and live release guide](docs/VERCEL.md). The hosted app uses Neon and a private queue; do not run an infinite worker in a Vercel Function.

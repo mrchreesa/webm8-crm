@@ -1,6 +1,6 @@
-import { getConfig } from './config';
-import { openConfiguredDatabase } from './db';
-import { createApp } from './app';
+import { getConfig } from './config.js';
+import { openConfiguredDatabase } from './db.js';
+import { createApp } from './app.js';
 const cfg = getConfig(),
   db = await openConfiguredDatabase(cfg);
 const server = createApp(db, cfg).listen(cfg.port, '0.0.0.0', () =>
