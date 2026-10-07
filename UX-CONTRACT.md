@@ -45,6 +45,10 @@ On the initial Overview visit, select Demo data only when demo mode is active an
 
 ## Navigation and feedback
 
+CRM and Analytics are in-page tabs. Both panels stay mounted after first use, preserving drafts, the current CRM route, report filters and the phone. Switching cannot discard data and does not invoke the navigation guard; route navigation still does. Arrow keys and Home/End select labelled panels. The browser URL remains the CRM route; a reload returns to CRM. Meta connection/demo controls are hidden in Analytics because they do not filter website reports.
+
+Production CRM and Analytics share Supabase sign-in, administrator MFA and logout through one browser origin. CRM requires active owner/manager membership in the configured WebM8 workspace. Verified iframe readiness is required; loading times out with Reload/Open separately recovery. Expiry recovery retains the same user's drafts; switching identity reloads the workspace. No lead PII is sent, and individual lead activity is explicitly not linked. Source: the owner's 7 October 2026 request and ../../webm8-platform/docs/crm-workspace.md.
+
 Every route sets its document title. Real links navigate; table row clicks navigate only outside nested buttons/selects and have an equivalent name link. Native dialog owns focus containment and inert background; restore focus on close. Destructive confirmation names the record and permanent removal, with danger intent and initial Cancel focus. Toast stays bottom-right and live; critical errors remain in context.
 
 Unsaved forms block in-app link/navigation through an app-owned discard dialog, and page unload through beforeunload only. Modal close also checks dirty state. Mutation failure never clears input. Owner expiry locks the app with a reauthentication dialog and preserves current forms in memory; no personal-data drafts in local storage. Version conflicts return 409 and require refresh.
@@ -60,3 +64,7 @@ Typecheck, build, unit/integration tests, Playwright full-flow and accessibility
 ## Hosted delivery status
 
 On Vercel, Integration distinguishes a configured private queue from a continuously running process. It shows the last completed queue cycle and persistent publication failures, and offers an authenticated background check. A server live lock is shown beside the existing explicit live confirmation. Source: docs/VERCEL.md and server/jobs.ts.
+
+## Website intake and answer recovery
+
+Website enquiries use the same lead detail and follow-up controls, labelled Website demo. Their website submission key is preserved; they do not impersonate Meta Instant Form leads. See docs/WEBSITE-INTAKE.md. Optional or malformed form answers must never hide contact details or actions. Test-mode delivery badges explicitly say Test.

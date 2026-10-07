@@ -1,3 +1,4 @@
+import { workspaceSession, WorkspaceAuthError } from './workspace-auth';
 import express from 'express';
 import helmet from 'helmet';
 import cookieParser from 'cookie-parser';
@@ -17,6 +18,7 @@ import {
   verifyPassword,
 } from './auth.js';
 import { persistWebhook, validSignature } from './meta.js';
+import { receiveWebsiteLead } from './website.js';
 import {
   createLead,
   changeStage,
@@ -90,10 +92,17 @@ export function createApp(db: DB, cfg: Config) {
           imgSrc: ["'self'", 'data:'],
           connectSrc: ["'self'"],
           fontSrc: ["'self'"],
+          frameSrc: ["'self'", new URL(cfg.analyticsUrl).origin],
           upgradeInsecureRequests: cfg.production ? [] : null,
         },
       },
       strictTransportSecurity: cfg.production ? undefined : false,
+    }),
+  );
+  app.get('/api/auth/config', (_req, res) =>
+    res.set('Cache-Control', 'no-store').json({
+      mode: cfg.workspaceAuth.enabled ? 'supabase' : 'owner',
+      analytics_url: cfg.analyticsUrl,
     }),
   );
   app.get('/api/health', async (_req, res) => {
@@ -116,6 +125,39 @@ export function createApp(db: DB, cfg: Config) {
     await wakeQueue(db, cfg);
     res.set('Cache-Control', 'no-store').json({ queued: true });
   });
+  app.post(
+    '/api/webhooks/website',
+    express.raw({ type: 'application/json', limit: '32kb' }),
+    async (req, res, next) => {
+      if (!cfg.websiteIntakeSecret) {
+        res.status(503).json({ error: 'Website intake is not configured.' });
+        return;
+      }
+      if (
+        !Buffer.isBuffer(req.body) ||
+        !validSignature(req.body, req.get('x-webm8-signature-256'), cfg.websiteIntakeSecret)
+      ) {
+        res.status(401).json({ error: 'Invalid website signature.' });
+        return;
+      }
+      let payload: unknown;
+      try {
+        payload = JSON.parse(req.body.toString('utf8'));
+      } catch {
+        res.status(400).json({ error: 'Invalid website request.' });
+        return;
+      }
+      try {
+        const { lead, duplicate } = await receiveWebsiteLead(db, cfg, payload);
+        res
+          .set('Cache-Control', 'no-store')
+          .status(duplicate ? 200 : 201)
+          .json({ ok: true, id: lead.id, duplicate });
+      } catch (error) {
+        next(error);
+      }
+    },
+  );
   app.get('/api/webhooks/meta', (req, res) => {
     if (!cfg.verifyToken) {
       res.status(503).send('Webhook verification is not configured.');
@@ -168,6 +210,10 @@ export function createApp(db: DB, cfg: Config) {
       message: { error: 'Too many sign-in attempts. Try again in 15 minutes.' },
     }),
     async (req, res) => {
+      if (cfg.workspaceAuth.enabled) {
+        res.status(404).json({ error: 'Use the shared workspace sign-in.' });
+        return;
+      }
       if (!cfg.passwordHash) {
         res
           .status(503)
@@ -189,6 +235,21 @@ export function createApp(db: DB, cfg: Config) {
     },
   );
   app.get('/api/auth/session', async (req, res) => {
+    if (cfg.workspaceAuth.enabled) {
+      try {
+        const s = await workspaceSession(cfg, req, res);
+        res.json({ csrf_token: s.csrf_token, owner: s.owner });
+      } catch (error) {
+        res.status(error instanceof WorkspaceAuthError ? error.status : 503).json({
+          error:
+            error instanceof WorkspaceAuthError
+              ? error.message
+              : 'Workspace access is temporarily unavailable.',
+          code: error instanceof WorkspaceAuthError ? error.code : 'AUTH_UNAVAILABLE',
+        });
+      }
+      return;
+    }
     const s = await session(db, cfg, req);
     if (!s) {
       res
@@ -200,6 +261,10 @@ export function createApp(db: DB, cfg: Config) {
   });
   app.use('/api', requireOwner(db, cfg), requireCSRF);
   app.post('/api/auth/logout', async (req, res) => {
+    if (cfg.workspaceAuth.enabled) {
+      res.status(404).json({ error: 'Use the shared workspace sign-out.' });
+      return;
+    }
     if (req.cookies.crm_session)
       await db
         .prepare('DELETE FROM sessions WHERE token_hash=?')
@@ -338,7 +403,16 @@ export function createApp(db: DB, cfg: Config) {
         follow_up_at: date.optional(),
       })
       .parse(req.body);
-    res.status(201).json(await createLead(db, cfg, { ...data, source: 'manual' }, cfg.ownerName));
+    res
+      .status(201)
+      .json(
+        await createLead(
+          db,
+          cfg,
+          { ...data, source: 'manual' },
+          res.locals.session.owner?.name || cfg.ownerName,
+        ),
+      );
   });
   app.get('/api/leads/:id', async (req, res) =>
     res.json(await leadDetail(db, String(req.params.id))),
@@ -352,14 +426,23 @@ export function createApp(db: DB, cfg: Config) {
       cfg,
       String(req.params.id),
       stageSchema.parse(req.body),
-      cfg.ownerName,
+      res.locals.session.owner?.name || cfg.ownerName,
     );
     await wakeQueue(db, cfg).catch(() => {});
     res.json(result);
   });
   app.post('/api/leads/:id/notes', async (req, res) => {
     const data = z.object({ text: z.string().trim().min(1).max(10000) }).parse(req.body);
-    res.status(201).json(await addNote(db, String(req.params.id), data.text, cfg.ownerName));
+    res
+      .status(201)
+      .json(
+        await addNote(
+          db,
+          String(req.params.id),
+          data.text,
+          res.locals.session.owner?.name || cfg.ownerName,
+        ),
+      );
   });
   app.delete('/api/leads/:id', async (req, res) => {
     await deleteLead(db, String(req.params.id));
@@ -376,7 +459,14 @@ export function createApp(db: DB, cfg: Config) {
   });
   app.post('/api/import/commit', async (req, res) => {
     const d = csvSchema.parse(req.body);
-    const result = await importCSV(db, cfg, d.csv, d.mapping, d.source, cfg.ownerName);
+    const result = await importCSV(
+      db,
+      cfg,
+      d.csv,
+      d.mapping,
+      d.source,
+      res.locals.session.owner?.name || cfg.ownerName,
+    );
     await wakeQueue(db, cfg).catch(() => {});
     res.json(result);
   });

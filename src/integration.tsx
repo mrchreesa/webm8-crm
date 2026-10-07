@@ -499,7 +499,7 @@ export function SyncLog() {
                         <span className="mode-label">{e.mode}</span>
                       </td>
                       <td>
-                        <SyncBadge status={e.status} />
+                        <SyncBadge status={e.status} testOnly={e.mode === 'test'} />
                       </td>
                       <td className="attempt-count">{e.attempts}</td>
                       <td className="error-cell">{e.last_error || '—'}</td>
@@ -551,7 +551,7 @@ export function SyncLog() {
             <div>
               <dt>Delivery</dt>
               <dd>
-                <SyncBadge status={selected.status} />
+                <SyncBadge status={selected.status} testOnly={selected.mode === 'test'} />
               </dd>
             </div>
             <div>

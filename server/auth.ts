@@ -1,3 +1,4 @@
+import { workspaceSession, WorkspaceAuthError } from './workspace-auth';
 import { randomBytes, scryptSync, timingSafeEqual } from 'node:crypto';
 import type { Request, Response, NextFunction } from 'express';
 import type { DB } from './db.js';
@@ -56,7 +57,19 @@ export async function session(db: DB, cfg: Config, req: Request) {
 }
 export function requireOwner(db: DB, cfg: Config) {
   return async (req: Request, res: Response, next: NextFunction) => {
-    const s = await session(db, cfg, req);
+    let s;
+    try {
+      s = cfg.workspaceAuth.enabled
+        ? await workspaceSession(cfg, req, res)
+        : await session(db, cfg, req);
+    } catch (error) {
+      if (error instanceof WorkspaceAuthError) {
+        res.status(error.status).json({ error: error.message, code: error.code });
+        return;
+      }
+      res.status(503).json({ error: 'Workspace access is temporarily unavailable.' });
+      return;
+    }
     if (!s) {
       res.status(401).json({ error: 'Sign in to access your CRM.' });
       return;

@@ -427,7 +427,7 @@ export function LeadTable({
               <td>{l.form_name || (l.source === 'manual' ? 'Manual lead' : 'Instant form')}</td>
               {!compact && <td>{date(l.follow_up_at, false)}</td>}
               <td>
-                <SyncBadge status={l.sync_status || 'pending'} />
+                <SyncBadge status={l.sync_status || 'pending'} testOnly={l.is_test === 1} />
               </td>
               <td>
                 <Link

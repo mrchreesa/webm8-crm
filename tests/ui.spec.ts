@@ -1,5 +1,83 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from './ui-fixture';
 import AxeBuilder from '@axe-core/playwright';
+
+test('CRM and Analytics tabs preserve drafts and reports, with keyboard and mobile access', async ({
+  page,
+}) => {
+  let loads = 0;
+  await page.route('https://webm8-platform.vercel.app/**', (route) => {
+    loads++;
+    return route.fulfill({
+      contentType: 'text/html',
+      body: `<!doctype html><html lang="en"><head><title>Test analytics</title></head><body><main><h1>Measured website activity</h1><label>Page filter<input id="filter"></label></main><script>addEventListener('message',e=>{if(e.data?.type==='webm8:embed:init')parent.postMessage({type:'webm8:embed:ready'},e.origin)})</script></body></html>`,
+    });
+  });
+  await page.getByRole('link', { name: 'Leads', exact: true }).click();
+  await page.getByRole('link', { name: 'Demo Emma', exact: true }).click();
+  const leadUrl = page.url();
+  await page.getByLabel('Add a note').fill('Keep my CRM draft');
+  await page.getByRole('tab', { name: 'CRM', exact: true }).focus();
+  await page.keyboard.press('ArrowRight');
+  await expect(page.getByRole('tab', { name: 'Analytics', exact: true })).toBeFocused();
+  await expect(page.getByRole('tab', { name: 'Analytics', exact: true })).toHaveAttribute(
+    'aria-selected',
+    'true',
+  );
+  const report = page.frameLocator('iframe[title="WebM8 website analytics"]');
+  await expect(report.getByRole('heading', { name: 'Measured website activity' })).toBeVisible();
+  await report.getByLabel('Page filter').fill('/pricing');
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+  await expect(
+    page.getByText('Synthetic leads for exploring your CRM.', { exact: false }),
+  ).toBeHidden();
+  await expect(page.getByLabel('Lead data')).toBeHidden();
+  await expect(page).toHaveTitle('Analytics — WebM8');
+  await page.getByRole('tab', { name: 'CRM', exact: true }).click();
+  await expect(page.getByLabel('Add a note')).toHaveValue('Keep my CRM draft');
+  expect(page.url()).toBe(leadUrl);
+  await page.getByRole('tab', { name: 'Analytics', exact: true }).click();
+  await expect(report.getByLabel('Page filter')).toHaveValue('/pricing');
+  expect(loads).toBe(1);
+  expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+  await page.screenshot({ path: 'test-results/analytics-desktop.png', fullPage: true });
+  await page.setViewportSize({ width: 390, height: 844 });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  await page.screenshot({ path: 'test-results/analytics-mobile.png', fullPage: true });
+  await page.getByRole('button', { name: 'Reload', exact: true }).click();
+  await expect(report.getByLabel('Page filter')).toHaveValue('');
+  expect(loads).toBe(2);
+  await page.getByRole('tab', { name: 'CRM', exact: true }).click();
+  await page.getByRole('link', { name: 'Overview', exact: true }).click();
+  await expect(page.getByRole('dialog', { name: 'Discard unsaved changes?' })).toBeVisible();
+});
+
+test('Analytics rejects a forged ready message and offers recovery for an unavailable embed', async ({
+  page,
+}) => {
+  await page.route('https://webm8-platform.vercel.app/**', (route) =>
+    route.fulfill({ contentType: 'text/html', body: '<h1>Unavailable test service</h1>' }),
+  );
+  await page.clock.install();
+  await page.getByRole('tab', { name: 'Analytics', exact: true }).click();
+  await page.evaluate(() =>
+    window.dispatchEvent(
+      new MessageEvent('message', {
+        origin: 'https://webm8-platform.vercel.app',
+        source: window,
+        data: { type: 'webm8:embed:ready' },
+      }),
+    ),
+  );
+  await expect(page.getByText('Opening Analytics…')).toBeVisible();
+  await page.clock.fastForward(16000);
+  await expect(page.getByText('Analytics has not connected')).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Open separately' })).toHaveAttribute(
+    'target',
+    '_blank',
+  );
+  await page.getByRole('tab', { name: 'CRM', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'The bigger picture.' })).toBeVisible();
+});
 test.beforeEach(async ({ page }) => {
   await page.goto('/');
   await page.getByLabel('Owner email').fill('test@example.com');
@@ -230,4 +308,38 @@ test('hosted queue status, live lock and background-check recovery stay usable o
   const results = await new AxeBuilder({ page }).analyze();
   expect(results.violations).toEqual([]);
   await page.screenshot({ path: 'test-results/queue-mobile-test.png', fullPage: true });
+});
+
+test('malformed and legacy form answers do not hide the lead or its contact actions', async ({
+  page,
+}) => {
+  let formAnswers = JSON.stringify([
+    { name: 'legacy_answer', value: 'Preserved answer' },
+    { name: 'optional_answer' },
+    null,
+  ]);
+  await page.route('**/api/leads/*', async (route) => {
+    if (route.request().method() !== 'GET') return route.continue();
+    const response = await route.fetch();
+    const data = await response.json();
+    if (data.lead) data.lead.form_answers = formAnswers;
+    await route.fulfill({ response, json: data });
+  });
+  await page.getByRole('link', { name: 'Leads', exact: true }).click();
+  await page.getByRole('link', { name: 'Demo Emma', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'Demo Emma', exact: true })).toBeVisible();
+  await expect(page.getByText('Preserved answer', { exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Edit details', exact: true })).toBeVisible();
+  await expect(
+    page.getByText('Some form answers could not be read.', { exact: false }),
+  ).toBeVisible();
+  formAnswers = '{broken json';
+  await page.reload();
+  await expect(page.getByRole('heading', { name: 'Demo Emma', exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Edit details', exact: true })).toBeVisible();
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.screenshot({ path: 'test-results/lead-recovery-mobile.png', fullPage: true });
+  expect(
+    await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth),
+  ).toBeTruthy();
 });

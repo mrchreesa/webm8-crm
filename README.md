@@ -1,6 +1,8 @@
 # WebM8 — Meta lead CRM
 
-An owner-authenticated React/Express CRM with PostgreSQL (Neon) or local SQLite storage, signed Meta leadgen webhooks, a durable retrieval inbox, and a persistent Conversions API outbox worker. GBP by default; London display and UTC storage. No external service is required for demo use.
+The **CRM / Analytics** tabs keep leads and website reporting in one workspace. Switching retains drafts, reports and active calls. Production uses one Supabase sign-in and serves Analytics at `/app` through Vercel rewrites. Configure `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY`, `CRM_WORKSPACE_ID` and `CRM_AUTH_MODE=supabase`. See [configuration and deployment order](https://github.com/mrchreesa/webm8-platform/blob/main/docs/crm-workspace.md) and the [unified login and lead-journey plan](https://github.com/mrchreesa/webm8-platform/blob/main/docs/unified-workspace-plan.md). Use your Analytics account; the configured workspace requires owner/manager membership. Exact lead-to-visit matching is not yet implemented.
+
+A team-authenticated React/Express CRM with PostgreSQL (Neon) or local SQLite storage, signed Meta leadgen webhooks, a durable retrieval inbox, and a persistent Conversions API outbox worker. GBP by default; London display and UTC storage. No external service is required for demo use.
 
 ## Run locally
 

@@ -421,6 +421,109 @@ code,
   flex: 1;
   min-width: 0;
 }
+.platform-tabs {
+  display: flex;
+  gap: 6px;
+  padding: 14px var(--space-page);
+  background: var(--color-surface);
+  border-bottom: 1px solid var(--color-border);
+}
+.platform-tabs button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 42px;
+  min-width: 116px;
+  padding: 10px 20px;
+  border-radius: var(--radius-default);
+  color: var(--color-muted);
+  font-weight: 600;
+}
+.platform-tabs button:hover {
+  background: var(--color-track);
+  color: var(--color-text);
+}
+.platform-tabs button[aria-selected='true'] {
+  background: var(--color-primary);
+  color: var(--color-surface);
+}
+[hidden] {
+  display: none !important;
+}
+.analytics-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  flex-wrap: wrap;
+}
+.analytics-toolbar h1 {
+  font-size: 26px;
+  margin-bottom: 6px;
+}
+.analytics-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.analytics-note {
+  margin: 18px 0;
+  color: var(--color-muted);
+  font-size: 12px;
+}
+.analytics-frame-wrap {
+  position: relative;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-panel);
+  background: var(--color-surface);
+  overflow: hidden;
+}
+.analytics-frame {
+  display: block;
+  width: 100%;
+  height: max(640px, 78vh);
+  border: 0;
+  visibility: hidden;
+}
+.analytics-frame.ready {
+  visibility: visible;
+}
+.analytics-frame-status {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 12px;
+  padding: 28px;
+  text-align: center;
+  color: var(--color-muted);
+}
+.analytics-frame-status strong {
+  color: var(--color-text);
+}
+.analytics-frame-status p {
+  max-width: 420px;
+}
+@media (max-width: 680px) {
+  .platform-tabs {
+    padding: 12px 18px;
+  }
+  .platform-tabs button {
+    flex: 1;
+    min-width: 0;
+  }
+  .analytics-toolbar h1 {
+    font-size: 24px;
+  }
+  .analytics-frame {
+    height: 80vh;
+    min-height: 540px;
+  }
+}
 .topbar {
   height: 69px;
   background: var(--color-surface);
@@ -2557,4 +2660,14 @@ summary:hover {
   .topbar-right {
     gap: 6px;
   }
+}
+
+.workspace-login {
+  width: 100%;
+}
+.workspace-login iframe {
+  width: 100%;
+  min-height: 500px;
+  border: 0;
+  display: block;
 }

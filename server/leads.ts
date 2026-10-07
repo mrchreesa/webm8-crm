@@ -22,6 +22,7 @@ export class AppError extends Error {
 }
 export interface LeadInput {
   source: Lead['source'];
+  website_submission_key?: string;
   name: string;
   email?: string;
   phone?: string;
@@ -143,6 +144,23 @@ export async function createLead(
   return await db
     .transaction(async () => {
       if (!input.name?.trim()) throw new AppError('Enter the lead’s name.', 400, 'name');
+      if (input.website_submission_key) {
+        if (input.source !== 'manual' || !/^[0-9a-f-]{36}$/i.test(input.website_submission_key))
+          throw new AppError('Invalid website submission identity.');
+        if (
+          await db
+            .prepare('SELECT 1 FROM deleted_leads WHERE id_hash=?')
+            .get(sha256('website:' + input.website_submission_key))
+        )
+          throw new AppError(
+            'This website submission was deleted and will not be re-imported.',
+            410,
+          );
+        const existing = (await db
+          .prepare('SELECT * FROM leads WHERE website_submission_key=?')
+          .get(input.website_submission_key)) as Lead | undefined;
+        if (existing) return { lead: existing, duplicate: true };
+      }
       if (input.meta_lead_id) {
         metaId(input.meta_lead_id);
         if (
@@ -178,6 +196,7 @@ export async function createLead(
         throw new AppError('The initial New milestone cannot precede CRM receipt.');
       const lead: Lead = {
         id: randomUUID(),
+        website_submission_key: input.website_submission_key || null,
         source: input.source,
         meta_lead_id: input.meta_lead_id || null,
         page_id: input.page_id || null,
@@ -384,6 +403,10 @@ export async function deleteLead(db: DB, id: string) {
         await db.prepare('DELETE FROM inbox WHERE meta_lead_id=?').run(lead.meta_lead_id);
       }
       await db.prepare('DELETE FROM leads WHERE id=?').run(id);
+      if (lead.website_submission_key)
+        await db
+          .prepare('INSERT INTO deleted_leads VALUES (?,?) ON CONFLICT DO NOTHING')
+          .run(sha256('website:' + lead.website_submission_key), nowISO());
     })
     .immediate();
   await db.pragma('wal_checkpoint(TRUNCATE)');

@@ -63,6 +63,8 @@ Borders define working surfaces. Static panels use no shadow. Only dialogs and n
 
 ## Components
 
+CRM and Analytics tabs sit above the breadcrumb, using existing primary, surface, muted, track and radius tokens. CRM remains mounted while Analytics is visible; the report owns its internal scrolling. Desktop and mobile share text/icons, a filled selected state and keyboard focus. No new palette or typography is introduced.
+
 Runtime ownership is `src/styles.css`: `colors.*` mirrors `--color-*`, typography mirrors `--font-*`, radius mirrors `--radius-*`, spacing mirrors `--space-*`. Shared primitives in `src/ui.tsx` consume those variables. Tokens are maintained together and checked by `npm run test`.
 
 Buttons distinguish primary, outline, ghost and danger. Focus is a visible 3px outline. Disabled/busy controls retain dimensions. Shared fields own inline errors and labels. Native select and date popups deliberately retain platform behaviour; product date-time conversion always uses Europe/London. Dialog uses native `showModal()` for inertness, focus containment, Escape and focus restoration. Shared notifications use a polite live region; actionable errors stay in forms. Motion is limited to a short spinner and hover feedback and respects reduced motion.

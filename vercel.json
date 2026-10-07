@@ -5,28 +5,109 @@
   "outputDirectory": "dist",
   "regions": ["lhr1"],
   "functions": {
-    "api/index.ts": { "maxDuration": 120, "includeFiles": "server/migrations/**/*.sql" },
+    "api/index.ts": {
+      "maxDuration": 120,
+      "includeFiles": "server/migrations/**/*.sql"
+    },
     "api/queue.ts": {
       "maxDuration": 120,
       "includeFiles": "server/migrations/**/*.sql",
-      "experimentalTriggers": [{ "type": "queue/v2beta", "topic": "crm-work" }]
+      "experimentalTriggers": [
+        {
+          "type": "queue/v2beta",
+          "topic": "crm-work"
+        }
+      ]
     }
   },
   "rewrites": [
-    { "source": "/api/:path*", "destination": "/api/index" },
-    { "source": "/((?!api/|assets/).*)", "destination": "/index.html" }
+    {
+      "source": "/api/auth/login",
+      "destination": "https://webm8-platform.vercel.app/api/auth/login"
+    },
+    {
+      "source": "/api/auth/logout",
+      "destination": "https://webm8-platform.vercel.app/api/auth/logout"
+    },
+    {
+      "source": "/app/:path*",
+      "destination": "https://webm8-platform.vercel.app/app/:path*"
+    },
+    {
+      "source": "/_next/:path*",
+      "destination": "https://webm8-platform.vercel.app/_next/:path*"
+    },
+    {
+      "source": "/login",
+      "destination": "https://webm8-platform.vercel.app/login"
+    },
+    {
+      "source": "/mfa",
+      "destination": "https://webm8-platform.vercel.app/mfa"
+    },
+    {
+      "source": "/auth/complete",
+      "destination": "https://webm8-platform.vercel.app/auth/complete"
+    },
+    {
+      "source": "/api/workspaces/:path*",
+      "destination": "https://webm8-platform.vercel.app/api/workspaces/:path*"
+    },
+    {
+      "source": "/api/connections/google/:path*",
+      "destination": "https://webm8-platform.vercel.app/api/connections/google/:path*"
+    },
+    {
+      "source": "/api/auth/state",
+      "destination": "https://webm8-platform.vercel.app/api/auth/state"
+    },
+    {
+      "source": "/api/:path*",
+      "destination": "/api/index"
+    },
+    {
+      "source": "/((?!api/|assets/).*)",
+      "destination": "/index.html"
+    }
   ],
-  "crons": [{ "path": "/api/cron/recover", "schedule": "0 3 * * *" }],
+  "crons": [
+    {
+      "path": "/api/cron/recover",
+      "schedule": "0 3 * * *"
+    }
+  ],
   "headers": [
     {
-      "source": "/(.*)",
+      "source": "/((?!app(?:/|$)|_next/|login(?:/|$)|mfa(?:/|$)|auth/complete(?:/|$)).*)",
       "headers": [
-        { "key": "X-Content-Type-Options", "value": "nosniff" },
-        { "key": "Referrer-Policy", "value": "no-referrer" },
-        { "key": "X-Frame-Options", "value": "DENY" },
+        {
+          "key": "X-Content-Type-Options",
+          "value": "nosniff"
+        },
+        {
+          "key": "Referrer-Policy",
+          "value": "no-referrer"
+        },
+        {
+          "key": "X-Frame-Options",
+          "value": "SAMEORIGIN"
+        },
         {
           "key": "Content-Security-Policy",
-          "value": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; font-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'"
+          "value": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; font-src 'self'; frame-src 'self' https://webm8-platform.vercel.app; frame-ancestors 'none'; base-uri 'self'; form-action 'self'"
+        }
+      ]
+    },
+    {
+      "source": "/((?:app|login|mfa|auth|api)(?:/.*)?)",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "private, no-store"
+        },
+        {
+          "key": "x-vercel-enable-rewrite-caching",
+          "value": "0"
         }
       ]
     }

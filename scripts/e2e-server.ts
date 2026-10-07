@@ -10,6 +10,7 @@ process.env.NODE_ENV = 'development';
 process.env.PORT = '5186';
 process.env.VITE_PORT = '5185';
 process.env.APP_URL = 'http://127.0.0.1:5185';
+process.env.TRUST_PROXY = '1';
 process.env.OWNER_EMAIL = 'test@example.com';
 process.env.OWNER_PASSWORD_HASH = hashPassword('test-owner-password');
 process.env.META_INITIAL_MODE = 'demo';

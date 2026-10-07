@@ -414,10 +414,11 @@ export function StageBadge({ stage }: { stage: Stage }) {
     </span>
   );
 }
-export function SyncBadge({ status }: { status: string }) {
+export function SyncBadge({ status, testOnly = false }: { status: string; testOnly?: boolean }) {
   return (
     <span className={`sync-label sync-${status}`}>
       <span className="dot" />
+      {testOnly ? 'Test · ' : ''}
       {STATUS_LABELS[status] || status}
     </span>
   );

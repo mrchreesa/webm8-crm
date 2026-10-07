@@ -22,6 +22,8 @@ export type EventStatus =
   'pending' | 'processing' | 'accepted' | 'failed' | 'expired' | 'suppressed';
 export interface Lead {
   id: string;
+  /** Direct website intake; legacy source remains manual for CRM-only delivery eligibility. */
+  website_submission_key?: string | null;
   source: 'meta_instant_form' | 'manual' | 'demo';
   meta_lead_id: string | null;
   page_id: string | null;

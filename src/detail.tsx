@@ -29,6 +29,7 @@ import {
 } from './ui';
 import { useWorkspace } from './App';
 import { PageHeading } from './lists';
+import { readFormAnswers } from './form-answers';
 export function StageForm({
   lead,
   initialStage,
@@ -157,7 +158,7 @@ export function LeadDetail() {
   if (state.error) return <ErrorState error={state.error} retry={state.refresh} />;
   if (!state.data) return null;
   const { lead: l, history, notes, events } = state.data,
-    answers = JSON.parse(l.form_answers) as { name: string; values: string[] }[],
+    { answers, incomplete } = readFormAnswers(l.form_answers),
     qualification = JSON.parse(l.qualification) as string[];
   const checklist: string[] = w.integration.data?.settings.checklist || [];
   return (
@@ -169,9 +170,11 @@ export function LeadDetail() {
         eyebrow={
           l.is_demo
             ? 'SYNTHETIC DEMO LEAD'
-            : l.source === 'manual'
-              ? 'YOUR CRM · MANUAL LEAD'
-              : 'META INSTANT FORM'
+            : l.website_submission_key
+              ? 'WEBSITE DEMO REQUEST'
+              : l.source === 'manual'
+                ? 'YOUR CRM · MANUAL LEAD'
+                : 'META INSTANT FORM'
         }
         title={l.name}
         description={`Received ${date(l.received_at)} · London time`}
@@ -359,7 +362,7 @@ export function LeadDetail() {
                     <strong>
                       {history.find((h) => h.id === e.history_id)?.new_stage || e.event_name}
                     </strong>
-                    <SyncBadge status={e.status} />
+                    <SyncBadge status={e.status} testOnly={e.mode === 'test'} />
                     <small>
                       {date(new Date(e.event_time * 1000).toISOString())} · {e.mode} mode
                     </small>
@@ -387,7 +390,8 @@ export function LeadDetail() {
             <div className="panel-content">
               <dl className="source-ids">
                 {[
-                  ['Source', l.source],
+                  ['Source', l.website_submission_key ? 'Website demo' : l.source],
+                  ['Website request ID', l.website_submission_key],
                   ['Meta lead ID', l.meta_lead_id],
                   ['Page ID', l.page_id],
                   ['Form ID', l.form_id],
@@ -405,13 +409,18 @@ export function LeadDetail() {
                   </div>
                 ))}
               </dl>
+              {incomplete && (
+                <p className="muted" role="status">
+                  Some form answers could not be read. Contact details are still available.
+                </p>
+              )}
               {answers.length > 0 && (
                 <div className="form-answers">
                   <h3>Form answers</h3>
                   {answers.map((a, i) => (
                     <div key={i}>
                       <small>{a.name.replaceAll('_', ' ')}</small>
-                      <p>{a.values.join(', ')}</p>
+                      <p>{a.values.length ? a.values.join(', ') : 'Not provided'}</p>
                     </div>
                   ))}
                 </div>

@@ -7,6 +7,7 @@ export class APIError extends Error {
     message: string,
     public status: number,
     public fields: Record<string, string> = {},
+    public code = '',
   ) {
     super(message);
   }
@@ -35,6 +36,7 @@ export async function api<T = any>(path: string, options: RequestInit = {}): Pro
       body.error || 'This request could not be completed.',
       res.status,
       body.fields,
+      body.code,
     );
   }
   return body;
