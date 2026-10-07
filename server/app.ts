@@ -1,4 +1,4 @@
-import { workspaceSession, WorkspaceAuthError } from './workspace-auth';
+import { workspaceSession, WorkspaceAuthError } from './workspace-auth.js';
 import express from 'express';
 import helmet from 'helmet';
 import cookieParser from 'cookie-parser';

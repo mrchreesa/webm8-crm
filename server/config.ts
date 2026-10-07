@@ -1,6 +1,6 @@
 import 'dotenv/config';
 import { z } from 'zod';
-import { resolveAnalyticsUrl } from '../src/analytics-config';
+import { resolveAnalyticsUrl } from '../src/analytics-config.js';
 export interface Config {
   port: number;
   databasePath: string;

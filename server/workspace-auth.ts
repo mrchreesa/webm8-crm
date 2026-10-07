@@ -1,7 +1,7 @@
 import { createServerClient } from '@supabase/ssr';
 import type { Request, Response } from 'express';
-import type { Config } from './config';
-import { sha256 } from './matching';
+import type { Config } from './config.js';
+import { sha256 } from './matching.js';
 
 export class WorkspaceAuthError extends Error {
   constructor(

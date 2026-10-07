@@ -1,4 +1,4 @@
-import { workspaceSession, WorkspaceAuthError } from './workspace-auth';
+import { workspaceSession, WorkspaceAuthError } from './workspace-auth.js';
 import { randomBytes, scryptSync, timingSafeEqual } from 'node:crypto';
 import type { Request, Response, NextFunction } from 'express';
 import type { DB } from './db.js';
