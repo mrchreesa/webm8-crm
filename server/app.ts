@@ -1,3 +1,4 @@
+import { websiteActivity } from './website-activity.js';
 import { workspaceSession, WorkspaceAuthError } from './workspace-auth.js';
 import express from 'express';
 import helmet from 'helmet';
@@ -319,6 +320,17 @@ export function createApp(db: DB, cfg: Config) {
       followups,
       recent,
     });
+  });
+  app.get('/api/leads/:id/website-activity', async (req, res) => {
+    const page = (value: unknown) =>
+      Math.max(1, Math.min(10000, Number.parseInt(queryText(value), 10) || 1));
+    res.json(
+      await websiteActivity(db, cfg, res.locals.session.analyticsClient, String(req.params.id), {
+        visit: queryText(req.query.visit),
+        page: page(req.query.page),
+        visits: page(req.query.visits),
+      }),
+    );
   });
   app.get('/api/leads', async (req, res) => {
     await expireEvents(db);

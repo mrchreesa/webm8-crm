@@ -7,6 +7,7 @@ export interface Config {
   databaseUrl: string;
   appUrl: string;
   analyticsUrl: string;
+  analyticsSiteId: string;
   workspaceAuth: { enabled: boolean; url: string; publishableKey: string; workspaceId: string };
   ownerEmail: string;
   ownerName: string;
@@ -83,6 +84,7 @@ export function getConfig(env: NodeJS.ProcessEnv = process.env): Config {
     databasePath: env.DATABASE_PATH || './data/crm.sqlite',
     databaseUrl: env.DATABASE_URL || '',
     appUrl,
+    analyticsSiteId: env.CRM_ANALYTICS_SITE_ID || '',
     analyticsUrl: unified ? `${appUrl}/app` : resolveAnalyticsUrl(env.VITE_ANALYTICS_URL),
     workspaceAuth: {
       enabled: unified,

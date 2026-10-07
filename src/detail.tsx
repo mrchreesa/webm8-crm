@@ -1,3 +1,4 @@
+import { WebsiteActivityPanel } from './website-activity-panel';
 import { useState } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import {
@@ -270,6 +271,7 @@ export function LeadDetail() {
               </div>
             </div>
           </section>
+          <WebsiteActivityPanel key={l.id} leadId={l.id} />
           <section className="panel">
             <div className="panel-heading">
               <div>

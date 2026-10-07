@@ -89,6 +89,7 @@ export async function workspaceSession(cfg: Config, req: Request, res: Response)
       'ACCESS_DENIED',
     );
   return {
+    analyticsClient: client,
     csrf_token: sha256(`crm-csrf:${claims.data.claims.session_id}`),
     owner: { name: profile.data.name, email: profile.data.email, id: profile.data.id },
     session_id: String(claims.data.claims.session_id),

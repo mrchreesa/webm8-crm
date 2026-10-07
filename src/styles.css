@@ -2671,3 +2671,67 @@ summary:hover {
   border: 0;
   display: block;
 }
+
+.website-activity .panel-content {
+  display: grid;
+  gap: 16px;
+  min-height: 160px;
+}
+.possible-visits,
+.activity-pages {
+  padding-left: 0;
+  list-style: none;
+  display: grid;
+  gap: 14px;
+}
+.possible-visits > li,
+.activity-pages > li {
+  border-top: 1px solid var(--color-border);
+  padding-top: 16px;
+  display: grid;
+  gap: 8px;
+}
+.possible-visit-heading,
+.activity-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.possible-visits .btn {
+  justify-self: start;
+}
+.activity-conflict {
+  color: var(--color-warning);
+}
+.possible-visit-detail {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-default);
+  padding: 16px;
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+}
+.activity-clicks {
+  padding-left: 18px;
+}
+.activity-clicks li {
+  margin-top: 8px;
+}
+.activity-clicks time {
+  display: block;
+  color: var(--color-muted);
+  font-size: 12px;
+}
+.activity-report-link {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.website-activity p,
+.website-activity li {
+  overflow-wrap: anywhere;
+}
+.activity-freshness {
+  font-size: 12px;
+}

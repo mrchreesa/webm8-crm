@@ -84,6 +84,7 @@ test.beforeEach(async ({ page }) => {
   await page.getByLabel('Password', { exact: true }).fill('test-owner-password');
   await page.getByRole('button', { name: 'Sign in', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'The bigger picture.' })).toBeVisible();
+  await page.getByLabel('Lead data').selectOption('demo');
 });
 test('owner can create, edit, record an outcome, note, export and permanently delete a manual lead', async ({
   page,
@@ -342,4 +343,106 @@ test('malformed and legacy form answers do not hide the lead or its contact acti
   expect(
     await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth),
   ).toBeTruthy();
+});
+
+test('possible website visits show evidence, uncertainty and page history without losing the CRM draft', async ({
+  page,
+}) => {
+  const sessionId = '10203040-1234-4123-8123-123456789abc';
+  const now = new Date().toISOString();
+  let failure = false,
+    empty = false;
+  await page.route('**/api/leads/*/website-activity?**', async (route) => {
+    if (failure)
+      return route.fulfill({
+        status: 503,
+        json: { error: 'Website activity is temporarily unavailable. Try again.' },
+      });
+    const detail = new URL(route.request().url()).searchParams.get('visit');
+    return route.fulfill({
+      json: {
+        status: 'ready',
+        checkedAt: now,
+        basis: 'Meta submission',
+        referenceAt: now,
+        total: empty ? 0 : 1,
+        page: 1,
+        truncated: false,
+        candidates: empty
+          ? []
+          : [
+              {
+                sessionId,
+                visitorId: 'browser',
+                firstReceivedAt: now,
+                device: 'mobile',
+                deltaMs: 24000,
+                band: 'Ad and timing match',
+                evidence: ['Ad ID matches the landing URL'],
+                conflicts: [],
+                rank: 30,
+                competingLeads: 1,
+              },
+            ],
+        selected: detail
+          ? {
+              sessionId,
+              total: 1,
+              page: 1,
+              analyticsPath: '/app/webm8/websites',
+              rows: [
+                {
+                  id: 'page',
+                  path: '/demo',
+                  created_at: now,
+                  active_ms: 45000,
+                  scroll_depth: 80,
+                  clicks: { 'demo-deck / demo-card-1': 1 },
+                  telemetry: {
+                    journey: {
+                      visibleMs: 60000,
+                      clicks: [{ name: 'demo-deck / demo-card-1', at: Date.now() }],
+                      clicksTruncated: false,
+                    },
+                  },
+                },
+              ],
+            }
+          : undefined,
+      },
+    });
+  });
+  await page.getByRole('link', { name: 'Leads', exact: true }).click();
+  await page.getByRole('link', { name: 'Demo Emma', exact: true }).click();
+  await page.getByLabel('Add a note').fill('Keep this while inspecting a possible visit');
+  const panel = page.getByRole('region', { name: 'Website activity', exact: true });
+  await expect(panel.getByText('Ad and timing match', { exact: true })).toBeVisible();
+  await expect(panel.getByText(/Also fits 1 other lead/)).toBeVisible();
+  await panel.getByRole('button', { name: 'Inspect this visit' }).click();
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+  await expect(panel.getByText('Clicked demo-deck / demo-card-1')).toBeVisible();
+  await expect(panel.getByText('45s active · 1m 0s visible · 80% scroll reach')).toBeVisible();
+  await expect(page.getByLabel('Add a note')).toHaveValue(
+    'Keep this while inspecting a possible visit',
+  );
+  await expect(page).toHaveURL(/activityVisit=/);
+  await panel.screenshot({ path: 'test-results/website-activity-desktop.png' });
+  await page.setViewportSize({ width: 390, height: 844 });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  await panel.screenshot({ path: 'test-results/website-activity-mobile.png' });
+  expect(
+    (await new AxeBuilder({ page }).include('.website-activity').analyze()).violations,
+  ).toEqual([]);
+  failure = true;
+  await panel.getByRole('button', { name: 'Refresh website activity' }).click();
+  await expect(
+    panel.getByText('Website activity is temporarily unavailable. Try again.'),
+  ).toBeVisible();
+  await expect(page.getByLabel('Add a note')).toHaveValue(
+    'Keep this while inspecting a possible visit',
+  );
+  failure = false;
+  empty = true;
+  await panel.getByRole('button', { name: 'Try again' }).click();
+  await expect(panel.getByText('No possible measured visit found')).toBeVisible();
 });
