@@ -10,7 +10,7 @@ export default defineConfig(({ mode }) => {
       port: Number(env.VITE_PORT || 5174),
       strictPort: true,
       proxy: {
-        [reporting]: { target: analytics, changeOrigin: true },
+        [reporting]: { target: analytics, changeOrigin: true, ws: true },
         ...(env.CRM_AUTH_MODE === 'supabase'
           ? { '^/api/auth/(login|logout)/?$': { target: analytics, changeOrigin: true } }
           : {}),
