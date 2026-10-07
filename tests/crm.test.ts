@@ -659,7 +659,7 @@ test('runtime design tokens mirror the durable design contract', () => {
     '#f3f6f7',
     '#ffffff',
     '#172f2c',
-    '#596c69',
+    '#465b57',
     '#dce5e3',
     '#25634a',
     '#8b570c',

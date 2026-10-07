@@ -7,7 +7,7 @@ colors:
   background: '#f3f6f7'
   surface: '#ffffff'
   text: '#172f2c'
-  muted: '#596c69'
+  muted: '#465b57'
   border: '#dce5e3'
   success: '#25634a'
   warning: '#8b570c'
@@ -15,9 +15,9 @@ colors:
   accent: '#f0be9b'
 typography:
   display:
-    fontFamily: 'Manrope, sans-serif'
+    fontFamily: '-apple-system, BlinkMacSystemFont, Segoe UI, Arial, sans-serif'
   body:
-    fontFamily: 'DM Sans, sans-serif'
+    fontFamily: '-apple-system, BlinkMacSystemFont, Segoe UI, Arial, sans-serif'
   mono:
     fontFamily: 'ui-monospace, monospace'
 rounded:
@@ -47,7 +47,7 @@ Pine anchors navigation and actions; cool grey surrounds white working surfaces.
 
 ## Typography
 
-Locally bundled Manrope headings use restrained weight and slightly tight tracking. DM Sans carries labels and readable records. Tabular numbers align counts and amounts. Monospace is reserved for IDs in detail and sync screens.
+Use the operating system UI font for headings and body: SF on Apple devices, Segoe UI on Windows, with Arial/sans-serif fallbacks. Body text is 16px at default browser settings; working rows are 15px, labels 14px and supporting captions at least 13px. Runtime tokens `--text-body`, `--text-ui`, `--text-label` and `--text-caption` use rem units so browser text preferences apply. Headings use restrained 600–700 weights and less compressed tracking. Secondary text uses #465b57 for stronger contrast. Mobile inputs stay at 16px; labels do not shrink at breakpoints. Tabular numbers align counts and amounts. Monospace is reserved for IDs. No font download is required.
 
 ## Layout
 
