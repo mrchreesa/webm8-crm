@@ -76,14 +76,14 @@ test('Analytics rejects a forged ready message and offers recovery for an unavai
     '_blank',
   );
   await page.getByRole('tab', { name: 'CRM', exact: true }).click();
-  await expect(page.getByRole('heading', { name: 'The bigger picture.' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Lead desk' })).toBeVisible();
 });
 test.beforeEach(async ({ page }) => {
   await page.goto('/');
   await page.getByLabel('Owner email').fill('test@example.com');
   await page.getByLabel('Password', { exact: true }).fill('test-owner-password');
   await page.getByRole('button', { name: 'Sign in', exact: true }).click();
-  await expect(page.getByRole('heading', { name: 'The bigger picture.' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Lead desk' })).toBeVisible();
   await page.getByLabel('Lead data').selectOption('demo');
 });
 test('owner can create, edit, record an outcome, note, export and permanently delete a manual lead', async ({
@@ -101,7 +101,12 @@ test('owner can create, edit, record an outcome, note, export and permanently de
   await dialog.getByLabel('New stage').selectOption('Qualified');
   await dialog.getByRole('button', { name: 'Save stage' }).click();
   await expect(dialog).toHaveCount(0);
-  await expect(page.getByText('Qualified', { exact: true }).first()).toBeVisible();
+  await expect(
+    page.locator('.desk-record > .page-heading').getByText('Qualified', { exact: true }),
+  ).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Browser Lead', exact: true })).toContainText(
+    'Qualified',
+  );
   await page.getByLabel('Add a note').fill('Meaningful browser note');
   await page.getByRole('button', { name: 'Add note', exact: true }).click();
   await expect(page.getByText('Meaningful browser note')).toBeVisible();
@@ -120,7 +125,7 @@ test('owner can create, edit, record an outcome, note, export and permanently de
   dialog = page.getByRole('dialog');
   await expect(dialog.getByRole('button', { name: 'Cancel' })).toBeFocused();
   await dialog.getByRole('button', { name: 'Delete lead' }).click();
-  await expect(page.getByRole('heading', { name: 'Every lead. One place.' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Lead desk' })).toBeVisible();
   await expect(page.getByRole('link', { name: 'Browser Lead', exact: true })).toHaveCount(0);
 });
 test('demo dashboard, integration and sync log are honest; keyboard, mobile and accessibility work', async ({
@@ -246,7 +251,8 @@ test('received and stage filters restore after opening a lead; browser Back prot
   page,
 }) => {
   await page.getByRole('link', { name: 'Leads', exact: true }).click();
-  await expect(page.getByRole('heading', { name: 'Every lead. One place.' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Lead desk' })).toBeVisible();
+  await page.locator('.queue-filters > summary').click();
   await page.getByLabel('Received period').selectOption('all');
   await page.getByLabel('Stage filter').selectOption('New');
   await page.getByRole('link', { name: 'Demo Emma', exact: true }).click();
@@ -329,6 +335,7 @@ test('malformed and legacy form answers do not hide the lead or its contact acti
   await page.getByRole('link', { name: 'Leads', exact: true }).click();
   await page.getByRole('link', { name: 'Demo Emma', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Demo Emma', exact: true })).toBeVisible();
+  await page.locator('.record-disclosure > summary').filter({ hasText: 'Original source' }).click();
   await expect(page.getByText('Preserved answer', { exact: true })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Edit details', exact: true })).toBeVisible();
   await expect(
@@ -445,4 +452,33 @@ test('possible website visits show evidence, uncertainty and page history withou
   empty = true;
   await panel.getByRole('button', { name: 'Try again' }).click();
   await expect(panel.getByText('No possible measured visit found')).toBeVisible();
+});
+
+test('Lead desk keeps search and selection, guards record changes and returns to the queue on mobile', async ({
+  page,
+}) => {
+  await page.getByLabel('Search leads').fill('Demo');
+  await expect(page.getByRole('link', { name: 'Demo Emma', exact: true })).toBeVisible();
+  await page.getByRole('link', { name: 'Demo Emma', exact: true }).click();
+  await expect(page.getByLabel('Search leads')).toHaveValue('Demo');
+  await expect(page.getByRole('link', { name: 'Demo Emma', exact: true })).toHaveAttribute(
+    'aria-current',
+    'page',
+  );
+  await page.getByLabel('Add a note').fill('Emma only');
+  await page.getByRole('link', { name: 'Demo James', exact: true }).click();
+  await expect(page.getByRole('dialog', { name: 'Discard unsaved changes?' })).toBeVisible();
+  await page.getByRole('button', { name: 'Discard changes' }).click();
+  await expect(page.getByRole('heading', { name: 'Demo James', exact: true })).toBeVisible();
+  await expect(page.getByLabel('Add a note')).toHaveValue('');
+  await expect(page.getByLabel('Search leads')).toHaveValue('Demo');
+  expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+  await page.screenshot({ path: 'test-results/lead-desk-desktop.png', fullPage: true });
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect(page.getByRole('region', { name: 'Lead queue', exact: true })).toBeHidden();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  await page.screenshot({ path: 'test-results/lead-desk-mobile.png', fullPage: true });
+  await page.getByRole('link', { name: 'Back to leads' }).click();
+  await expect(page.getByLabel('Search leads')).toHaveValue('Demo');
+  await expect(page.getByRole('link', { name: 'Demo James', exact: true })).toBeVisible();
 });

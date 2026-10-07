@@ -39,6 +39,8 @@ export async function api<T = any>(path: string, options: RequestInit = {}): Pro
       body.code,
     );
   }
+  if (options.method && options.method !== 'GET' && /^\/leads(?:\/|$)/.test(path))
+    window.dispatchEvent(new Event('crm:leads-changed'));
   return body;
 }
 export const post = (path: string, data: unknown) =>

@@ -1,6 +1,14 @@
 import { WorkspaceLogin, announceSignOut } from './workspace-login';
 import { createContext, useContext, useEffect, useState } from 'react';
-import { NavLink, Routes, Route, Link, useLocation, useSearchParams } from 'react-router-dom';
+import {
+  NavLink,
+  Routes,
+  Route,
+  Link,
+  useLocation,
+  useSearchParams,
+  Navigate,
+} from 'react-router-dom';
 import {
   LayoutDashboard,
   UsersRound,
@@ -256,7 +264,11 @@ function Workspace({
     setPlatform('crm');
   }, [location.pathname]);
   useEffect(() => {
-    if (integration.data && !params.has('data') && location.pathname === '/') {
+    if (
+      integration.data &&
+      !params.has('data') &&
+      ['/', '/leads', '/overview'].includes(location.pathname)
+    ) {
       const p = new URLSearchParams(params);
       p.set(
         'data',
@@ -268,8 +280,8 @@ function Workspace({
     }
   }, [integration.data]);
   const links = [
-    { to: '/', label: 'Overview', icon: LayoutDashboard },
     { to: '/leads', label: 'Leads', icon: UsersRound },
+    { to: '/overview', label: 'Overview', icon: LayoutDashboard },
     { to: '/integration', label: 'Meta integration', icon: Workflow },
     { to: '/sync', label: 'Sync log', icon: Radio },
   ];
@@ -282,9 +294,12 @@ function Workspace({
     document.title = platform === 'analytics' ? 'Analytics — WebM8' : `${title} — WebM8 CRM`;
   }, [title, platform]);
   const link = (path: string) => {
-    const p = new URLSearchParams({ data: scope });
-    if (path.startsWith('/leads/') && location.pathname === '/leads')
-      p.set('return', location.pathname + location.search);
+    const p =
+      path.startsWith('/leads') && location.pathname.startsWith('/leads')
+        ? new URLSearchParams(params)
+        : new URLSearchParams({ data: scope });
+    for (const key of ['return', 'activityVisit', 'activityPage', 'activityVisits']) p.delete(key);
+    if (path.startsWith('/leads/')) p.set('return', `/leads?${p}`);
     return `${path}?${p}`;
   };
   return (
@@ -294,7 +309,7 @@ function Workspace({
           <Link
             className="brand"
             to={link('/')}
-            aria-label="WebM8 CRM overview"
+            aria-label="WebM8 lead desk"
             onClick={() => openPlatform('crm')}
           >
             <span className="brand-mark">
@@ -307,7 +322,7 @@ function Workspace({
           <div className="workspace-name">
             <span className="workspace-icon">W</span>
             <div>
-              Your workspace<small>{unified ? 'Team access' : 'Owner access'}</small>
+              WebM8<small>{unified ? 'Team access' : 'Owner access'}</small>
             </div>
           </div>
           <span className="nav-label">WORKSPACE</span>
@@ -353,10 +368,10 @@ function Workspace({
           </div>
         </aside>
         <div className="workspace-main">
-          <nav aria-label="Platform switcher">
-            <PlatformTabs active={platform} onChange={openPlatform} />
-          </nav>
           <header className="topbar">
+            <nav aria-label="Platform switcher">
+              <PlatformTabs active={platform} onChange={openPlatform} />
+            </nav>
             <div className="breadcrumb">
               Workspace <span>/</span>{' '}
               <strong>{platform === 'analytics' ? 'Analytics' : title}</strong>
@@ -405,9 +420,11 @@ function Workspace({
               hidden={platform !== 'crm'}
             >
               <Routes>
-                <Route path="/" element={<Overview />} />
-                <Route path="/leads" element={<Leads />} />
-                <Route path="/leads/:id" element={<LeadDetail />} />
+                <Route path="/" element={<Navigate to={`/leads${location.search}`} replace />} />
+                <Route path="/overview" element={<Overview />} />
+                <Route path="/leads" element={<Leads />}>
+                  <Route path=":id" element={<LeadDetail />} />
+                </Route>
                 <Route path="/import" element={<ImportPage />} />
                 <Route path="/integration" element={<Integration />} />
                 <Route path="/sync" element={<SyncLog />} />

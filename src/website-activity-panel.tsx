@@ -40,7 +40,7 @@ export function WebsiteActivityPanel({ leadId }: { leadId: string }) {
         </Button>
       </div>
       <div className="panel-content" aria-busy={state.loading}>
-        <p className="alert info">
+        <p className="activity-caution">
           These are possible matches, not confirmed activity by this person. Timing and ad tags can
           be shared by several visitors.
         </p>
@@ -78,11 +78,14 @@ export function WebsiteActivityPanel({ leadId }: { leadId: string }) {
             )}
             {result.status === 'ready' && (
               <>
-                <p className="muted">
-                  {result.basis}: {date(result.referenceAt)} · London time. Comparing visits first
-                  measured on /demo from 2 minutes before to 10 minutes after. Measurement may start
-                  later because of visitor choices or network delays.
-                </p>
+                <details className="activity-method">
+                  <summary>How possible visits are compared</summary>
+                  <p className="muted">
+                    {result.basis}: {date(result.referenceAt)} · London time. Comparing visits first
+                    measured on /demo from 2 minutes before to 10 minutes after. Measurement may
+                    start later because of visitor choices or network delays.
+                  </p>
+                </details>
                 {result.truncated && (
                   <p className="alert warning">
                     This busy period reached a search limit. The list and competing-lead counts are
@@ -100,23 +103,34 @@ export function WebsiteActivityPanel({ leadId }: { leadId: string }) {
                     <li key={candidate.sessionId}>
                       <div className="possible-visit-heading">
                         <strong>{candidate.band}</strong>
-                        <span className="badge">Possible match</span>
+                        <span className="badge possible-badge">Possible match</span>
                       </div>
                       <p>
                         {date(candidate.firstReceivedAt)} · {duration(Math.abs(candidate.deltaMs))}{' '}
                         {candidate.deltaMs < 0 ? 'before' : 'after'} {result.basis?.toLowerCase()} ·{' '}
                         {candidate.device}
                       </p>
-                      <ul>
-                        {candidate.evidence.map((e) => (
-                          <li key={e}>{e}</li>
-                        ))}
-                        {candidate.conflicts.map((e) => (
-                          <li key={e} className="activity-conflict">
-                            {e}
-                          </li>
-                        ))}
-                      </ul>
+                      <details className="candidate-evidence">
+                        <summary>
+                          Matching evidence
+                          {candidate.conflicts.length ? ' · conflicting signals' : ''}
+                        </summary>
+                        <ul>
+                          {candidate.evidence.map((e) => (
+                            <li key={e}>{e}</li>
+                          ))}
+                        </ul>
+                      </details>
+                      {candidate.conflicts.length > 0 && (
+                        <ul className="candidate-conflicts">
+                          {' '}
+                          {candidate.conflicts.map((e) => (
+                            <li key={e} className="activity-conflict">
+                              {e}
+                            </li>
+                          ))}
+                        </ul>
+                      )}
                       {candidate.competingLeads > 0 && (
                         <p className="activity-conflict">
                           Also fits {candidate.competingLeads} other{' '}

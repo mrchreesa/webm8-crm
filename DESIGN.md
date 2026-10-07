@@ -51,7 +51,7 @@ Locally bundled Manrope headings use restrained weight and slightly tight tracki
 
 ## Layout
 
-A 224px navigation rail and a natural document scroller. Main content has 40px desktop padding and a 1440px maximum width. At 1000px the rail narrows and paired panels stack; at 680px navigation becomes a horizontal labelled strip and padding becomes 18px. Tables own horizontal overflow. Forms keep natural height.
+A 224px navigation rail and a natural document scroller. Main content has 40px desktop padding and a 1440px maximum width. At 1000px the rail narrows and paired panels stack; at 680px navigation becomes a horizontal labelled strip and padding becomes 18px. Tables own horizontal overflow. Forms keep natural height. The default Lead desk uses a 300px lead queue beside the record, narrowing to 260px on smaller laptops. Only the queue list has a bounded internal scroll; the record uses document scrolling. At 900px and below, selecting a lead shows the record with a Back to leads link. Filters and search remain mounted. Record history, qualification and source data use native disclosures. Amber distinguishes possible visit matches.
 
 ## Elevation & Depth
 
@@ -63,7 +63,7 @@ Borders define working surfaces. Static panels use no shadow. Only dialogs and n
 
 ## Components
 
-CRM and Analytics tabs sit above the breadcrumb, using existing primary, surface, muted, track and radius tokens. CRM remains mounted while Analytics is visible; the report owns its internal scrolling. Desktop and mobile share text/icons, a filled selected state and keyboard focus. No new palette or typography is introduced.
+CRM and Analytics tabs share a compact header with workspace context, using existing primary, surface, muted, track and radius tokens. CRM remains mounted while Analytics is visible; the report owns its internal scrolling. Desktop and mobile share text/icons, a filled selected state and keyboard focus. No new palette or typography is introduced.
 
 Runtime ownership is `src/styles.css`: `colors.*` mirrors `--color-*`, typography mirrors `--font-*`, radius mirrors `--radius-*`, spacing mirrors `--space-*`. Shared primitives in `src/ui.tsx` consume those variables. Tokens are maintained together and checked by `npm run test`.
 

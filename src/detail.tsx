@@ -1,6 +1,6 @@
 import { WebsiteActivityPanel } from './website-activity-panel';
 import { useState } from 'react';
-import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import {
   ArrowRight,
   Pencil,
@@ -141,16 +141,18 @@ export function StageForm({
   );
 }
 export function LeadDetail() {
+  const { id } = useParams();
+  return <LeadRecord key={id} />;
+}
+function LeadRecord() {
   const { id } = useParams(),
-    [params] = useSearchParams(),
     w = useWorkspace(),
     state = useLoad<{ lead: Lead; history: History[]; notes: Note[]; events: OutboxEvent[] }>(
       `/leads/${id}`,
     ),
     toast = useToast(),
     navigate = useNavigate();
-  const returnPath = params.get('return'),
-    listPath = returnPath?.startsWith('/leads?') ? returnPath : w.link('/leads');
+  const listPath = w.link('/leads');
   const [stage, setStage] = useState(false),
     [edit, setEdit] = useState(false),
     [remove, setRemove] = useState(false),
@@ -185,7 +187,7 @@ export function LeadDetail() {
           Change stage <ArrowRight size={16} />
         </Button>
       </PageHeading>
-      {l.is_demo === 1 && (
+      {l.is_demo === 1 && !w.demo && (
         <div className="alert info">
           Synthetic demo record. It is never sent to Meta, in any mode.
         </div>
@@ -233,7 +235,7 @@ export function LeadDetail() {
               <dl className="detail-values">
                 <div>
                   <dt>Next follow-up</dt>
-                  <dd>{date(l.follow_up_at)}</dd>
+                  <dd>{l.follow_up_at ? date(l.follow_up_at) : 'Not scheduled'}</dd>
                 </div>
                 <div>
                   <dt>Appointment</dt>
@@ -250,8 +252,8 @@ export function LeadDetail() {
                   </div>
                 )}
               </dl>
-              <div className="qualification">
-                <h3>Qualification checklist</h3>
+              <details className="qualification">
+                <summary>Qualification checklist</summary>
                 <p className="muted">
                   A reminder to assess fit. Checking these does not change the stage.
                 </p>
@@ -268,7 +270,7 @@ export function LeadDetail() {
                 <Button variant="ghost" onClick={() => setEdit(true)}>
                   Update checklist →
                 </Button>
-              </div>
+              </details>
             </div>
           </section>
           <WebsiteActivityPanel key={l.id} leadId={l.id} />
@@ -315,7 +317,13 @@ export function LeadDetail() {
               </div>
             </div>
           </section>
-          <section className="panel">
+          <details className="panel record-disclosure">
+            <summary>
+              Stage history{' '}
+              <span>
+                {history.length} {history.length === 1 ? 'entry' : 'entries'}
+              </span>
+            </summary>
             <div className="panel-heading">
               <div>
                 <h2>Stage history</h2>
@@ -346,10 +354,11 @@ export function LeadDetail() {
                 </article>
               ))}
             </div>
-          </section>
+          </details>
         </div>
         <div className="detail-secondary">
-          <section className="panel">
+          <details className="panel record-disclosure">
+            <summary>Meta feedback</summary>
             <div className="panel-heading">
               <div>
                 <h2>Meta feedback</h2>
@@ -381,8 +390,9 @@ export function LeadDetail() {
                 Inspect the sync log <ArrowUpRightIcon />
               </Link>
             </div>
-          </section>
-          <section className="panel">
+          </details>
+          <details className="panel record-disclosure">
+            <summary>Original source</summary>
             <div className="panel-heading">
               <div>
                 <h2>Original source</h2>
@@ -428,7 +438,7 @@ export function LeadDetail() {
                 </div>
               )}
             </div>
-          </section>
+          </details>
           <div className="delete-area">
             <Button variant="ghost" className="danger-text" onClick={() => setRemove(true)}>
               <Trash2 size={15} />
