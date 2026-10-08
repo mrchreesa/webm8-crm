@@ -17,9 +17,11 @@ import {
   BookOpen,
   ArrowUpRight,
   LogOut,
+  RefreshCw,
 } from 'lucide-react';
 import { api, post, setCSRF } from './api';
 import {
+  Button,
   Field,
   Form,
   Submit,
@@ -243,6 +245,7 @@ function Workspace({
 }) {
   const [platform, setPlatform] = useState<'crm' | 'analytics'>('crm');
   const [analyticsOpened, setAnalyticsOpened] = useState(false);
+  const [analyticsRefresh, setAnalyticsRefresh] = useState(0);
   const openPlatform = (next: 'crm' | 'analytics') => {
     if (next === 'analytics') setAnalyticsOpened(true);
     setPlatform(next);
@@ -368,7 +371,7 @@ function Workspace({
           </div>
         </aside>
         <div className="workspace-main">
-          <header className="topbar">
+          <header className={`topbar ${platform === 'analytics' ? 'analytics-active' : ''}`}>
             <nav aria-label="Platform switcher">
               <PlatformTabs active={platform} onChange={openPlatform} />
             </nav>
@@ -377,6 +380,17 @@ function Workspace({
               <strong>{platform === 'analytics' ? 'Analytics' : title}</strong>
             </div>
             <div className="topbar-right">
+              {platform === 'analytics' && (
+                <Button
+                  variant="outline"
+                  className="analytics-refresh"
+                  aria-label="Refresh analytics"
+                  title="Refresh analytics"
+                  onClick={() => setAnalyticsRefresh((value) => value + 1)}
+                >
+                  <RefreshCw size={18} aria-hidden="true" />
+                </Button>
+              )}
               <span
                 hidden={platform === 'analytics'}
                 className={`connection ${integration.data?.connected ? 'connected' : ''}`}
@@ -446,7 +460,9 @@ function Workspace({
               aria-labelledby="analytics-tab"
               hidden={platform !== 'analytics'}
             >
-              {analyticsOpened && <AnalyticsWorkspace url={analyticsUrl} unified={unified} />}
+              {analyticsOpened && (
+                <AnalyticsWorkspace url={analyticsUrl} refreshVersion={analyticsRefresh} />
+              )}
             </div>
           </main>
           <footer className="app-footer">

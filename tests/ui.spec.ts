@@ -43,7 +43,10 @@ test('CRM and Analytics tabs preserve drafts and reports, with keyboard and mobi
   await page.setViewportSize({ width: 390, height: 844 });
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   await page.screenshot({ path: 'test-results/analytics-mobile.png', fullPage: true });
-  await page.getByRole('button', { name: 'Reload', exact: true }).click();
+  await page
+    .getByRole('banner')
+    .getByRole('button', { name: 'Refresh analytics', exact: true })
+    .click();
   await expect(report.getByLabel('Page filter')).toHaveValue('');
   expect(loads).toBe(2);
   await page.getByRole('tab', { name: 'CRM', exact: true }).click();
@@ -71,10 +74,10 @@ test('Analytics rejects a forged ready message and offers recovery for an unavai
   await expect(page.getByText('Opening Analytics…')).toBeVisible();
   await page.clock.fastForward(16000);
   await expect(page.getByText('Analytics has not connected')).toBeVisible();
-  await expect(page.getByRole('link', { name: 'Open separately' })).toHaveAttribute(
-    'target',
-    '_blank',
-  );
+  await expect(page.getByRole('link', { name: 'Open separately' })).toHaveCount(0);
+  await expect(
+    page.getByRole('banner').getByRole('button', { name: 'Refresh analytics' }),
+  ).toBeVisible();
   await page.getByRole('tab', { name: 'CRM', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Lead desk' })).toBeVisible();
 });

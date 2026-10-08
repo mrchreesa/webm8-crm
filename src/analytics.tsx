@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { BarChart3, ExternalLink, RefreshCw, UsersRound } from 'lucide-react';
-import { Button } from './ui';
+import { BarChart3, UsersRound } from 'lucide-react';
 import { resolveAnalyticsUrl } from './analytics-config';
 
 // Public dashboard address only. No CRM records or credentials cross this boundary.
@@ -45,11 +44,16 @@ export function PlatformTabs({
   );
 }
 
-export function AnalyticsWorkspace({ url, unified = false }: { url?: string; unified?: boolean }) {
+export function AnalyticsWorkspace({
+  url,
+  refreshVersion,
+}: {
+  url?: string;
+  refreshVersion: number;
+}) {
   const analyticsUrl = resolveAnalyticsUrl(url || import.meta.env.VITE_ANALYTICS_URL);
   const analyticsOrigin = new URL(analyticsUrl).origin;
   const frame = useRef<HTMLIFrameElement>(null);
-  const [attempt, setAttempt] = useState(0);
   const [status, setStatus] = useState<'loading' | 'ready' | 'unavailable'>('loading');
   const connect = () =>
     frame.current?.contentWindow?.postMessage({ type: 'webm8:embed:init' }, analyticsOrigin);
@@ -79,35 +83,10 @@ export function AnalyticsWorkspace({ url, unified = false }: { url?: string; uni
       clearInterval(ping);
       clearTimeout(timeout);
     };
-  }, [attempt]);
+  }, [refreshVersion, analyticsUrl]);
 
   return (
     <section className="analytics-workspace" aria-label="Website analytics workspace">
-      <div className="analytics-toolbar">
-        <div>
-          <h1>Website analytics</h1>
-          <p className="muted">Explore visits, pages and time spent on your websites.</p>
-        </div>
-        <div className="analytics-actions">
-          <Button variant="outline" onClick={() => setAttempt((value) => value + 1)}>
-            <RefreshCw size={15} /> Reload
-          </Button>
-          <a
-            className="button outline"
-            href={analyticsUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Open separately <ExternalLink size={15} aria-hidden="true" />
-          </a>
-        </div>
-      </div>
-      <p className="analytics-note">
-        {unified
-          ? 'Your workspace sign-in is shared with Analytics.'
-          : 'Use your Analytics sign-in if prompted.'}{' '}
-        Website activity is not yet linked to individual CRM leads.
-      </p>
       <div className="analytics-frame-wrap" aria-busy={status === 'loading'}>
         {status !== 'ready' && (
           <div className="analytics-frame-status" role="status">
@@ -118,12 +97,12 @@ export function AnalyticsWorkspace({ url, unified = false }: { url?: string; uni
             <p>
               {status === 'loading'
                 ? 'Your CRM stays open while your reports load.'
-                : 'Try Reload, or open Analytics separately if your browser blocks the embedded workspace.'}
+                : 'Use Refresh analytics in the navigation bar to try again.'}
             </p>
           </div>
         )}
         <iframe
-          key={attempt}
+          key={refreshVersion}
           ref={frame}
           title="WebM8 website analytics"
           src={analyticsUrl}

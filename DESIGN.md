@@ -63,7 +63,7 @@ Borders define working surfaces. Static panels use no shadow. Only dialogs and n
 
 ## Components
 
-CRM and Analytics tabs share a compact header with workspace context, using existing primary, surface, muted, track and radius tokens. CRM remains mounted while Analytics is visible; the report owns its internal scrolling. Desktop and mobile share text/icons, a filled selected state and keyboard focus. No new palette or typography is introduced.
+CRM and Analytics tabs share a compact header with workspace context, using existing primary, surface, muted, track and radius tokens. CRM remains mounted while Analytics is visible; the report owns its internal scrolling. Desktop and mobile share text/icons, a filled selected state and keyboard focus. No new palette or typography is introduced. Analytics starts directly with the report; its compact refresh control lives in the shared header, without a separate introduction or toolbar.
 
 Runtime ownership is `src/styles.css`: `colors.*` mirrors `--color-*`, typography mirrors `--font-*`, radius mirrors `--radius-*`, spacing mirrors `--space-*`. Shared primitives in `src/ui.tsx` consume those variables. Tokens are maintained together and checked by `npm run test`.
 
