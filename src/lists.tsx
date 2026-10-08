@@ -674,26 +674,7 @@ export function Leads() {
     <div
       className={`lead-desk ${pipeline ? 'pipeline-view' : 'desk-view'} ${id ? 'has-selection' : ''}`}
     >
-      <div className="desk-heading">
-        <PageHeading
-          eyebrow="WEBM8 · LEADS & OUTCOMES"
-          title={pipeline ? 'Sales pipeline' : 'Lead desk'}
-          description={
-            pipeline
-              ? 'See what is moving, what is waiting and what needs a next step.'
-              : 'Work through the next conversations, one lead at a time.'
-          }
-        >
-          <Link className="button outline" to={w.link('/import')}>
-            <Upload size={16} />
-            Import CSV
-          </Link>
-          <Button onClick={() => setAdd(true)}>
-            <Plus size={17} />
-            Add lead
-          </Button>
-        </PageHeading>
-      </div>
+      <h1 className="sr-only">{pipeline ? 'Sales pipeline' : 'Lead desk'}</h1>
       <div className="lead-view-toolbar">
         <nav className="lead-view-switch" aria-label="Lead views">
           <Link
@@ -723,6 +704,16 @@ export function Leads() {
               <span>{state.data?.work_counts?.[key] ?? '—'}</span>
             </Button>
           ))}
+        </div>
+        <div className="lead-toolbar-actions">
+          <Link className="button outline" to={w.link('/import')}>
+            <Upload size={16} />
+            Import CSV
+          </Link>
+          <Button onClick={() => setAdd(true)}>
+            <Plus size={17} />
+            Add lead
+          </Button>
         </div>
       </div>
       <div className="desk-columns">

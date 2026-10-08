@@ -2722,12 +2722,6 @@ summary:hover {
 }
 
 /* Lead desk: the queue owns its scroll; forms retain natural document height. */
-.lead-desk .desk-heading .page-heading {
-  margin-bottom: 22px;
-}
-.desk-heading h1 {
-  font-size: 28px;
-}
 .desk-columns {
   display: grid;
   grid-template-columns: 300px minmax(0, 1fr);
@@ -2993,8 +2987,7 @@ summary:hover {
   .queue-frame {
     max-height: none;
   }
-  .lead-desk.has-selection .lead-queue,
-  .lead-desk.has-selection > .desk-heading {
+  .lead-desk.has-selection .lead-queue {
     display: none;
   }
   .lead-desk:not(.has-selection) .desk-record {
@@ -3046,16 +3039,6 @@ summary:hover {
 }
 .topbar-right {
   margin-left: auto;
-}
-.lead-desk.has-selection > .desk-heading .eyebrow,
-.lead-desk.has-selection > .desk-heading .page-heading p {
-  display: none;
-}
-.lead-desk.has-selection > .desk-heading h1 {
-  font-size: 20px;
-}
-.lead-desk.has-selection > .desk-heading .page-heading {
-  margin-bottom: 18px;
 }
 @media (max-width: 1200px) {
   .topbar .breadcrumb {
@@ -3159,11 +3142,28 @@ summary:hover {
 /* Sales workflow: compact stages, one next action, factual activity history. */
 .lead-view-toolbar {
   display: flex;
-  flex-wrap: wrap;
   align-items: center;
-  justify-content: space-between;
-  gap: 14px;
-  margin-bottom: 18px;
+  gap: 12px;
+  overflow-x: auto;
+  padding: 4px;
+  margin: -4px -4px 12px;
+  scroll-padding-inline: 4px;
+}
+.lead-view-toolbar > * {
+  flex-shrink: 0;
+}
+.lead-view-toolbar a,
+.lead-view-toolbar button {
+  white-space: nowrap;
+}
+.lead-toolbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+}
+.lead-toolbar-actions .button {
+  padding: 8px 12px;
 }
 .lead-view-switch {
   display: flex;
@@ -3173,7 +3173,7 @@ summary:hover {
   border-radius: var(--radius-default);
 }
 .lead-view-switch a {
-  padding: 8px 16px;
+  padding: 8px 12px;
   border-radius: 7px;
   font-size: var(--text-ui);
   font-weight: 600;
@@ -3187,7 +3187,6 @@ summary:hover {
 }
 .work-filters {
   display: flex;
-  flex-wrap: wrap;
   gap: 4px;
 }
 .work-filters .button {
