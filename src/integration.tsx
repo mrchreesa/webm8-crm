@@ -419,7 +419,7 @@ export function SyncLog() {
       status: params.get('status') || '',
       page: params.get('page') || '1',
     }),
-    state = useLoad(`/events?${query}`, true),
+    state = useLoad(`/events?${query}`),
     [selected, setSelected] = useState<OutboxEvent | null>(null);
   const change = (status: string) => {
     const p = new URLSearchParams(params);

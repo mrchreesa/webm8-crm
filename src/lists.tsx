@@ -132,7 +132,7 @@ export function Overview() {
   const w = useWorkspace(),
     [params] = useSearchParams(),
     query = new URLSearchParams({ ...receivedQuery(params), data: w.scope }),
-    state = useLoad(`/overview?${query}`, true),
+    state = useLoad(`/overview?${query}`),
     [add, setAdd] = useState(false);
   return (
     <>
@@ -142,6 +142,15 @@ export function Overview() {
         description="See what came in, what moved forward, and what needs you."
       >
         <DateFilter />
+        <Button
+          variant="outline"
+          onClick={state.refresh}
+          disabled={state.loading}
+          aria-label="Refresh overview"
+          title="Refresh overview"
+        >
+          <RefreshCw size={17} aria-hidden="true" />
+        </Button>
         <Button onClick={() => setAdd(true)}>
           <Plus size={17} />
           Add lead

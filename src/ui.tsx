@@ -469,7 +469,7 @@ export function Empty({ title, children }: { title: string; children: ReactNode 
     </div>
   );
 }
-export function useLoad<T = any>(path: string, poll = false) {
+export function useLoad<T = any>(path: string) {
   const [data, setData] = useState<T | null>(null),
     [loading, setLoading] = useState(true),
     [error, setError] = useState(''),
@@ -493,13 +493,6 @@ export function useLoad<T = any>(path: string, poll = false) {
       });
     return () => ctrl.abort();
   }, [path, tick]);
-  useEffect(() => {
-    if (!poll) return;
-    const t = setInterval(() => {
-      if (document.visibilityState === 'visible') setTick((t) => t + 1);
-    }, 20000);
-    return () => clearInterval(t);
-  }, [poll]);
   return { data, loading, error, refresh: () => setTick((t) => t + 1) };
 }
 export function Pagination({

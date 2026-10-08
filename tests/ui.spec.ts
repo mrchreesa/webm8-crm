@@ -361,11 +361,14 @@ test('malformed and legacy form answers do not hide the lead or its contact acti
 test('possible website visits show evidence, uncertainty and page history without losing the CRM draft', async ({
   page,
 }) => {
+  await page.clock.install();
+  let activityReads = 0;
   const sessionId = '10203040-1234-4123-8123-123456789abc';
   const now = new Date().toISOString();
   let failure = false,
     empty = false;
   await page.route('**/api/leads/*/website-activity?**', async (route) => {
+    activityReads++;
     if (failure)
       return route.fulfill({
         status: 503,
@@ -431,6 +434,9 @@ test('possible website visits show evidence, uncertainty and page history withou
   const panel = page.getByRole('region', { name: 'Website activity', exact: true });
   await expect(panel.getByText('Ad and timing match', { exact: true })).toBeVisible();
   await expect(panel.getByText(/Also fits 1 other lead/)).toBeVisible();
+  const readsAfterOpen = activityReads;
+  await page.clock.fastForward(65000);
+  expect(activityReads).toBe(readsAfterOpen);
   await panel.getByRole('button', { name: 'Inspect this visit' }).click();
   await expect(page.getByRole('dialog')).toHaveCount(0);
   await expect(panel.getByText('Clicked demo-deck / demo-card-1')).toBeVisible();

@@ -13,7 +13,7 @@ export function WebsiteActivityPanel({ leadId }: { leadId: string }) {
     page = params.get('activityPage') || '1',
     visits = params.get('activityVisits') || '1';
   const query = new URLSearchParams({ visit, page, visits });
-  const state = useLoad<WebsiteActivity>(`/leads/${leadId}/website-activity?${query}`, true);
+  const state = useLoad<WebsiteActivity>(`/leads/${leadId}/website-activity?${query}`);
   function navigate(changes: Record<string, string>) {
     const next = new URLSearchParams(params);
     for (const [key, value] of Object.entries(changes)) {
@@ -277,8 +277,8 @@ export function WebsiteActivityPanel({ leadId }: { leadId: string }) {
                   </section>
                 )}
                 <p className="muted activity-freshness">
-                  Checked {date(result.checkedAt)} · London time. Updates every 20 seconds while
-                  visible. No lead identity or conversion is assigned from this comparison.
+                  Checked {date(result.checkedAt)} · London time. Refresh to check for newer
+                  activity. No lead identity or conversion is assigned from this comparison.
                 </p>
               </>
             )}

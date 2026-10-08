@@ -55,7 +55,7 @@ Unsaved forms block in-app link/navigation through an app-owned discard dialog, 
 
 ## Async and validation
 
-Pessimistic writes; duplicate-submit guards. Remote reads use AbortController and ignore stale completions. Offline failures preserve inputs with retry. Server Zod schemas provide field errors; fields expose aria-invalid/describedby and focus the first error. Native popup behaviour is intentionally accepted for this English owner product. All mutation requests use CSRF and origin validation. Secrets are only configured on the server; the settings screen shows boolean configuration status.
+Pessimistic writes; duplicate-submit guards. Remote reads use AbortController and ignore stale completions. Per the owner’s 8 October request, `useLoad` has no polling interval. Views load on opening or changing their query, and after their existing save/refresh actions. Overview, Sync log and Website activity retain manual refresh. Incoming Meta notifications and website measurements are recorded independently of screen reads. Offline failures preserve inputs with retry. Server Zod schemas provide field errors; fields expose aria-invalid/describedby and focus the first error. Native popup behaviour is intentionally accepted for this English owner product. All mutation requests use CSRF and origin validation. Secrets are only configured on the server; the settings screen shows boolean configuration status.
 
 ## Verification
 
