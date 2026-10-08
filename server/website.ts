@@ -10,7 +10,8 @@ export const websiteSubmission = z.object({
   business: z.string().trim().min(1).max(120),
   email: z.email().max(254),
   phone: z.string().min(7).max(40),
-  area: z.string().min(1).max(120),
+  // The /free-demo/ form stopped asking for an area; older submissions still send one.
+  area: z.string().max(120).optional(),
   trade: z.string().min(1).max(80),
   tradeOther: z.string().max(80).nullable(),
   link: value.nullable(),

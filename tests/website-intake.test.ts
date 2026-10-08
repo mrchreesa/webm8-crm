@@ -71,6 +71,8 @@ test('signed website intake saves once, keeps attribution, and never impersonate
     const updated = await getLead(db, lead.id);
     await deleteLead(db, updated.id);
     assert.equal((await send()).status, 410);
+    const withoutArea = { ...data, submissionKey: randomUUID(), area: undefined };
+    assert.equal((await send(JSON.stringify(withoutArea))).status, 201);
     cfg.websiteIntakeSecret = '';
     assert.equal((await send()).status, 503);
   } finally {
