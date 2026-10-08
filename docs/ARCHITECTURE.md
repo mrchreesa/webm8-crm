@@ -35,3 +35,7 @@ For Neon migration, restore limits and the pending Vercel worker adaptation, see
 ## Vercel runtime
 
 The hosted runtime uses Neon only, private Vercel queue wakeups and bounded worker cycles. SQL remains authoritative for leases, stable payloads, ordering, retries and expiry. Daily authenticated cron recovers database commits whose publication was interrupted. Preview APIs are isolated; live delivery requires the production server lock to be enabled as well as explicit owner mode selection. See [Vercel deployment](VERCEL.md).
+
+## Sales workflow
+
+`server/workflow.ts` owns structured results, activity corrections and follow-up tasks; `server/lead-queries.ts` owns server-filtered queue/board projections and follow-up health reporting. Both use the existing SQL transaction/owner-auth boundaries. Migration 009 adds lead-scoped cascade-deleted tables and carries existing follow-up dates forward. The original `leads.follow_up_at` remains a transactional compatibility projection of the single open task. JSON exports and SQLite-to-PostgreSQL transfer include full task/activity history. See [sales workflow](SALES-WORKFLOW.md).

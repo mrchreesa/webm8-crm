@@ -1,7 +1,7 @@
 ---
 version: alpha
 name: WebM8 CRM
-description: A quiet lead desk with a pine navigation rail and an outcome pathway.
+description: A compact sales pipeline and lead desk with a pine navigation rail and recorded progress.
 colors:
   primary: '#173c35'
   background: '#f3f6f7'
@@ -39,7 +39,7 @@ components:
 
 ## Overview
 
-The reference is a small business owner's lead desk: contact records on the left, the next useful action on the right. This is a product surface for a UK business, in English, used daily on a laptop and occasionally a phone. The signature is an outcome pathway: independent milestone bars express what leads actually reached, including skipped stages. Avoid marketing hero sections, fabricated growth charts, and campaign-manager density.
+The reference is a small business owner's daily sales workflow: scan the pipeline, pick a lead, record the conversation and agree the next action. This is a product surface for a UK business, in English, used daily on a laptop and occasionally a phone. The signature is recorded progress: First call, Demo, Proposal and Outcome show factual states and dates. Booked and completed are distinct, and unknown history says Not recorded. Overview milestone bars independently express attained sales stages, including skipped stages. Avoid marketing hero sections, fabricated growth charts, and campaign-manager density.
 
 ## Colors
 
@@ -51,7 +51,7 @@ Use the operating system UI font for headings and body: SF on Apple devices, Seg
 
 ## Layout
 
-A 224px navigation rail and a natural document scroller. Main content has 40px desktop padding and a 1440px maximum width. At 1000px the rail narrows and paired panels stack; at 680px navigation becomes a horizontal labelled strip and padding becomes 18px. Tables own horizontal overflow. Forms keep natural height. The default Lead desk uses a 300px lead queue beside the record, narrowing to 260px on smaller laptops. Only the queue list has a bounded internal scroll; the record uses document scrolling. At 900px and below, selecting a lead shows the record with a Back to leads link. Filters and search remain mounted. Record history, qualification and source data use native disclosures. Amber distinguishes possible visit matches.
+A 224px navigation rail and a natural document scroller. Main content has 40px desktop padding and a 1440px maximum width. At 1000px the rail narrows and paired panels stack; at 680px navigation becomes a horizontal labelled strip and padding becomes 18px. Tables own horizontal overflow. Forms keep natural height. The default Sales pipeline shows four open-stage columns, eight cards per stage and full matching counts. It wraps to two columns on laptops and one on phones; View all opens the paginated Lead desk. The selected record appears below the board, with progress/history and possible website evidence side by side on wide screens. The alternative Lead desk uses a 300px lead queue beside the record, narrowing to 260px on smaller laptops. Only the queue list has a bounded internal scroll; the record uses document scrolling. At 900px and below, selecting a lead shows the record with a Back to leads link. Filters and search remain mounted. Record history, qualification and source data use native disclosures. Amber distinguishes possible visit matches.
 
 ## Elevation & Depth
 
@@ -74,6 +74,9 @@ Copy names real actions. API delivery is always “Accepted by Meta”. Counts h
 ## Do's and Don'ts
 
 - Do keep the next follow-up visible and distinguish synthetic records everywhere.
+- Do prioritise overdue work, unworked New leads and missing next steps in compact cards.
+- Do show corrected activity in history and exclude it from recorded progress.
+- Don't represent sales progress with a fabricated percentage or infer a conversation from completing a reminder.
 - Do use the same stage and delivery badges across screens.
 - Don't imply stage bars are nested: skipped milestones are not filled in.
 - Don't describe accepted API events as matched, attributed or optimization active.

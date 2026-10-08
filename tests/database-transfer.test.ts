@@ -1,4 +1,6 @@
 import { test } from 'node:test';
+import { randomUUID } from 'node:crypto';
+import { recordActivity } from '../server/workflow';
 import assert from 'node:assert/strict';
 import { openDatabase, settings } from '../server/db';
 import { getConfig } from '../server/config';
@@ -38,6 +40,21 @@ test('SQLite transfer preserves personal data, exact IDs, history, test mode and
       )
     ).lead;
     await addNote(source, lead.id, 'Synthetic transfer note', 'Tester');
+    await recordActivity(
+      source,
+      lead.id,
+      {
+        id: randomUUID(),
+        version: lead.version,
+        kind: 'connected',
+        occurred_at: new Date().toISOString(),
+        note: 'Agreed a demo',
+        follow_up_at: new Date(Date.now() + 86400000).toISOString(),
+        follow_up_title: 'Demo walkthrough',
+        follow_up_kind: 'demo',
+      },
+      'Tester',
+    );
     await source
       .prepare(
         "UPDATE outbox SET status='accepted',attempts=2,accepted_at=?,response_trace_id='migration-trace'",
@@ -49,6 +66,8 @@ test('SQLite transfer preserves personal data, exact IDs, history, test mode and
     const before = await leadDetail(source, lead.id);
     const copied = await transferSqliteToPostgres(source, target);
     assert.equal(copied.counts.leads, 1);
+    assert.equal(copied.counts.lead_tasks, 1);
+    assert.equal(copied.counts.lead_activities, 2);
     assert.deepEqual(await leadDetail(target, lead.id), before);
     assert.equal((await settings(target, cfg)).mode, 'test');
     assert.equal((await transferSqliteToPostgres(source, target)).already_migrated, true);

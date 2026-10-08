@@ -1,6 +1,8 @@
+import { LeadWorkflow, LeadTimeline } from './lead-workflow';
+import type { WorkflowDetail } from './workflow';
 import { WebsiteActivityPanel } from './website-activity-panel';
 import { useState } from 'react';
-import { Link, useNavigate, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import {
   ArrowRight,
   Pencil,
@@ -134,6 +136,12 @@ export function StageForm({
           : 'Only a genuine stage change sends an event. Repeated positive milestones are not sent again.'}{' '}
         Correcting a stage does not retract an event already accepted by Meta.
       </p>
+      {['Won', 'Lost', 'Unqualified'].includes(stage) && lead.follow_up_at && (
+        <p className="form-help">
+          Closing this lead also cancels its outstanding sales follow-up. The follow-up stays in
+          history.
+        </p>
+      )}
       <div className="form-actions">
         <Submit>Save stage</Submit>
       </div>
@@ -146,10 +154,15 @@ export function LeadDetail() {
 }
 function LeadRecord() {
   const { id } = useParams(),
+    [params] = useSearchParams(),
     w = useWorkspace(),
-    state = useLoad<{ lead: Lead; history: History[]; notes: Note[]; events: OutboxEvent[] }>(
-      `/leads/${id}`,
-    ),
+    state = useLoad<{
+      lead: Lead;
+      history: History[];
+      notes: Note[];
+      events: OutboxEvent[];
+      workflow: WorkflowDetail;
+    }>(`/leads/${id}?historyPage=${params.get('historyPage') || '1'}`),
     toast = useToast(),
     navigate = useNavigate();
   const listPath = w.link('/leads');
@@ -160,7 +173,7 @@ function LeadRecord() {
   if (state.loading && !state.data) return <Loading />;
   if (state.error) return <ErrorState error={state.error} retry={state.refresh} />;
   if (!state.data) return null;
-  const { lead: l, history, notes, events } = state.data,
+  const { lead: l, history, events, workflow } = state.data,
     { answers, incomplete } = readFormAnswers(l.form_answers),
     qualification = JSON.parse(l.qualification) as string[];
   const checklist: string[] = w.integration.data?.settings.checklist || [];
@@ -273,12 +286,12 @@ function LeadRecord() {
               </details>
             </div>
           </section>
-          <WebsiteActivityPanel key={l.id} leadId={l.id} />
+          <LeadWorkflow lead={l} workflow={workflow} onRefresh={state.refresh} />
           <section className="panel">
             <div className="panel-heading">
               <div>
-                <h2>Conversation notes</h2>
-                <p>Private to your CRM. Never sent to Meta.</p>
+                <h2>Lead history</h2>
+                <p>Conversations, follow-ups and stage changes · London time</p>
               </div>
               <MessageSquare size={19} />
             </div>
@@ -305,16 +318,12 @@ function LeadRecord() {
                   <Submit>Add note</Submit>
                 </div>
               </Form>
-              <div className="notes-list">
-                {notes.map((n) => (
-                  <article className="note" key={n.id}>
-                    <p>{n.text}</p>
-                    <small>
-                      {n.author} · {date(n.created_at)}
-                    </small>
-                  </article>
-                ))}
-              </div>
+              <LeadTimeline
+                lead={l}
+                workflow={workflow}
+                loading={state.loading}
+                onRefresh={state.refresh}
+              />
             </div>
           </section>
           <details className="panel record-disclosure">
@@ -357,6 +366,7 @@ function LeadRecord() {
           </details>
         </div>
         <div className="detail-secondary">
+          <WebsiteActivityPanel key={l.id} leadId={l.id} />
           <details className="panel record-disclosure">
             <summary>Meta feedback</summary>
             <div className="panel-heading">
@@ -472,7 +482,7 @@ function LeadRecord() {
                   name: f.get('name'),
                   email: f.get('email'),
                   phone: f.get('phone'),
-                  follow_up_at: toUTC(String(f.get('follow_up_at') || '')),
+                  follow_up_at: l.follow_up_at,
                   appointment_at: toUTC(String(f.get('appointment_at') || '')),
                   sale_minor: toMinor(String(f.get('sale_gbp') || '')),
                   qualification: f.getAll('qualification'),
@@ -488,12 +498,6 @@ function LeadRecord() {
             <Field name="name" label="Name" defaultValue={l.name} required />
             <Field name="email" label="Email" type="email" defaultValue={l.email} />
             <Field name="phone" label="Phone" type="tel" defaultValue={l.phone} />
-            <Field
-              name="follow_up_at"
-              label="Next follow-up · London time"
-              type="datetime-local"
-              defaultValue={l.follow_up_at ? localInput(l.follow_up_at) : ''}
-            />
             <Field
               name="appointment_at"
               label="Appointment · London time"

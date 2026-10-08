@@ -1,4 +1,6 @@
 import { websiteActivity } from './website-activity.js';
+import { recordActivity, manageTask, correctActivity, workflowDetail } from './workflow.js';
+import { listWorkflowLeads, workflowReport } from './lead-queries.js';
 import { workspaceSession, WorkspaceAuthError } from './workspace-auth.js';
 import express from 'express';
 import helmet from 'helmet';
@@ -22,6 +24,7 @@ import { persistWebhook, validSignature } from './meta.js';
 import { receiveWebsiteLead } from './website.js';
 import {
   createLead,
+  getLead,
   changeStage,
   editLead,
   addNote,
@@ -319,6 +322,7 @@ export function createApp(db: DB, cfg: Config) {
       events: Object.fromEntries(counts.map((c) => [c.status, c.n])),
       followups,
       recent,
+      workflow: await workflowReport(db, demo, range),
     });
   });
   app.get('/api/leads/:id/website-activity', async (req, res) => {
@@ -334,52 +338,7 @@ export function createApp(db: DB, cfg: Config) {
   });
   app.get('/api/leads', async (req, res) => {
     await expireEvents(db);
-    const range = londonRange(queryText(req.query.from), queryText(req.query.to)),
-      q = queryText(req.query.q).slice(0, 200),
-      stage = queryText(req.query.stage),
-      form = queryText(req.query.form),
-      problems = queryText(req.query.problems) === 'true',
-      demo = queryText(req.query.data) === 'demo';
-    const where = ['l.received_at>=?', 'l.received_at<?', 'l.is_demo=?'],
-      args: unknown[] = [range.from, range.to, demo ? 1 : 0];
-    if (q) {
-      where.push(
-        "(l.name LIKE ? ESCAPE '\\' OR l.email LIKE ? ESCAPE '\\' OR l.phone LIKE ? ESCAPE '\\' OR l.meta_lead_id LIKE ? ESCAPE '\\')",
-      );
-      const escaped = `%${q.replace(/[\\%_]/g, '\\$&')}%`;
-      args.push(escaped, escaped, escaped, escaped);
-    }
-    if (stage) {
-      where.push('l.stage=?');
-      args.push(stage);
-    }
-    if (form) {
-      where.push('l.form_id=?');
-      args.push(form);
-    }
-    if (problems)
-      where.push(
-        "EXISTS(SELECT 1 FROM outbox e WHERE e.lead_id=l.id AND (e.status IN ('failed','expired') OR (e.status='pending' AND e.last_error IS NOT NULL)))",
-      );
-    const clause = where.join(' AND '),
-      total = (
-        (await db.prepare(`SELECT COUNT(*) AS n FROM leads l WHERE ${clause}`).get(...args)) as {
-          n: number;
-        }
-      ).n;
-    const p = pagination(req.query),
-      page = Math.min(p.page, Math.max(1, Math.ceil(total / p.size)));
-    const rows = await db
-      .prepare(
-        `SELECT l.*,${syncSQL} AS sync_status FROM leads l WHERE ${clause} ORDER BY l.received_at DESC,l.id LIMIT ? OFFSET ?`,
-      )
-      .all(...args, p.size, (page - 1) * p.size);
-    const forms = await db
-      .prepare(
-        'SELECT DISTINCT form_id,form_name FROM leads WHERE form_id IS NOT NULL AND is_demo=? ORDER BY form_name',
-      )
-      .all(demo ? 1 : 0);
-    res.json({ rows, total, page, page_size: p.size, forms });
+    res.json(await listWorkflowLeads(db, req.query, syncSQL));
   });
   app.get('/api/leads/export', async (req, res) => {
     const closed = new AbortController();
@@ -396,7 +355,18 @@ export function createApp(db: DB, cfg: Config) {
       let first = true;
       for await (const leads of exportLeadBatches(db))
         for (const lead of leads) {
-          await write(`${first ? '' : ','}${JSON.stringify(await leadDetail(db, lead.id))}`);
+          const exported = {
+            ...(await leadDetail(db, lead.id)),
+            activities: await db
+              .prepare(
+                'SELECT * FROM lead_activities WHERE lead_id=? ORDER BY occurred_at,recorded_at,id',
+              )
+              .all(lead.id),
+            follow_ups: await db
+              .prepare('SELECT * FROM lead_tasks WHERE lead_id=? ORDER BY created_at,id')
+              .all(lead.id),
+          };
+          await write(`${first ? '' : ','}${JSON.stringify(exported)}`);
           first = false;
         }
       res.end(']}');
@@ -427,10 +397,52 @@ export function createApp(db: DB, cfg: Config) {
       );
   });
   app.get('/api/leads/:id', async (req, res) =>
-    res.json(await leadDetail(db, String(req.params.id))),
+    res.json(await leadDetail(db, String(req.params.id), Number(queryText(req.query.historyPage)))),
+  );
+  app.get('/api/leads/:id/workflow', async (req, res) => {
+    await getLead(db, String(req.params.id));
+    res.json(await workflowDetail(db, String(req.params.id), Number(queryText(req.query.page))));
+  });
+  app.post('/api/leads/:id/activities', async (req, res) =>
+    res.json(
+      await recordActivity(
+        db,
+        String(req.params.id),
+        req.body,
+        res.locals.session.owner?.name || cfg.ownerName,
+      ),
+    ),
+  );
+  app.post('/api/leads/:id/tasks', async (req, res) =>
+    res.json(
+      await manageTask(
+        db,
+        String(req.params.id),
+        req.body,
+        res.locals.session.owner?.name || cfg.ownerName,
+      ),
+    ),
+  );
+  app.post('/api/leads/:id/activities/:activityId/correct', async (req, res) =>
+    res.json(
+      await correctActivity(
+        db,
+        String(req.params.id),
+        String(req.params.activityId),
+        req.body,
+        res.locals.session.owner?.name || cfg.ownerName,
+      ),
+    ),
   );
   app.patch('/api/leads/:id', async (req, res) =>
-    res.json(await editLead(db, String(req.params.id), editSchema.parse(req.body))),
+    res.json(
+      await editLead(
+        db,
+        String(req.params.id),
+        editSchema.parse(req.body),
+        res.locals.session.owner?.name || cfg.ownerName,
+      ),
+    ),
   );
   app.post('/api/leads/:id/stage', async (req, res) => {
     const result = await changeStage(

@@ -71,16 +71,30 @@ Website enquiries use the same lead detail and follow-up controls, labelled Webs
 
 ## Possible website visits
 
-`WebsiteActivityPanel` uses shared Button, Empty, ErrorState, useLoad and the existing panel tokens. Five possible visits and 25 measured pages per group are server-paginated. `activityVisit`, `activityVisits` and `activityPage` are URL state. Only changes to these three parameters within the same lead bypass the navigation draft guard because all forms remain mounted; route, data scope and other query changes keep the guard. Browser tests verify both behaviours.
+`WebsiteActivityPanel` uses shared Button, Empty, ErrorState, useLoad and the existing panel tokens. Five possible visits and 25 measured pages per group are server-paginated. `activityVisit`, `activityVisits` and `activityPage` are URL state. These three parameters and read-only `historyPage` within the same lead bypass the navigation draft guard because all forms remain mounted; route, data scope and other query changes keep the guard. Browser tests verify both behaviours.
 
 Every candidate is labelled possible, with timing, matching/conflicting ad tags and competing-lead counts. No probability, verified identity, conversion, or automatic CRM link is invented. Empty, expired, unconfigured and unavailable are distinct. Async reads are cancelled through useLoad; the checked timestamp remains visible. Inspecting another visit hides the previous visit’s detail while loading. The panel is independent of lead capture, notes, calls and Meta delivery.
 
 ## Lead desk (7 October 2026)
 
-The approved default is `/leads`; `/` redirects there and Overview remains at `/overview`. `Leads` is the persistent parent route for `/leads/:id`. Search stays in memory across record selection and Back; date/stage/form/page/data filters remain in the URL. A selected record is keyed by lead ID, so unsaved state can never carry into a different lead. The existing navigation guard requires discarding or keeping edits before changing records. Read-only website activity paging preserves the same record and its forms.
+The approved route is `/leads`; `/` redirects there and Overview remains at `/overview`. The 8 October sales workflow below supersedes the original Lead desk default. `Leads` is the persistent parent route for `/leads/:id`. Search stays in memory across record selection and Back; date/stage/form/page/data filters remain in the URL. A selected record is keyed by lead ID, so unsaved state can never carry into a different lead. The existing navigation guard requires discarding or keeping edits before changing records. Read-only website activity paging preserves the same record and its forms.
 
 The queue shows source, current stage and next follow-up (or received date), with 20 server-paginated records. It does not infer website activity for unselected leads or issue one activity query per row. Successful lead mutations invalidate the mounted queue through `crm:leads-changed`; background polling never reorders that queue. Filters and explicit refresh retain their existing cancellation/error behavior. Notes and all writes retain the existing canonical Form/Modal flow. On narrow screens the queue stays mounted but hidden during detail work, returning with search and filters intact.
 
 Website activity uses the same API and comparison rules. Matching evidence and comparison methodology use native disclosures; conflicts and competing-lead warnings remain visible in the candidate summary. Qualification, stage history, Meta delivery and original answers remain available through labelled disclosures. CRM/Analytics remain mounted during platform switches.
 
 Evidence: `tests/ui.spec.ts` covers queue search persistence, correct record selection, draft discard, a clean next record, mutation refresh, desktop/mobile layouts, keyboard and accessibility alongside existing CRUD/expiry/error cases.
+
+## Sales workflow (8 October 2026)
+
+Source: the owner approved the CRM recommendations and selected Sales pipeline. Domain decisions and compatibility guarantees live in [docs/SALES-WORKFLOW.md](docs/SALES-WORKFLOW.md).
+
+`/leads` now defaults to Pipeline; `view=desk` retains the conversation queue. Both use the same search, URL filters, canonical cards and record component. Lead receipt defaults to all time so an old overdue task is visible. Overview keeps its existing cohort date range. Work views are All leads, Untouched (New with no recorded result), Overdue, Today (London calendar day) and No next step. Their counts respect the other current filters. Sort options use actual receipt, task due dates or last recorded meaningful contact; notes never imply a conversation.
+
+Pipeline shows eight cards per stage, full matching stage counts and an explicit View all link into the 20-row desk. Closed outcomes are separate links. No drag gesture can bypass the existing Change stage form. Filters, sort, selected view and lead remain in the URL. Card selection preserves search and focuses the record; mobile returns with Back to leads.
+
+`src/lead-workflow.tsx` owns result, task and correction flows; it reuses `src/ui.tsx` Form/Field/Submit/Modal/ModalCancel. All saves are pessimistic. A result and its selected task completion/new follow-up save atomically. The operation identifier stays fixed across retries; failures keep form values. Conflicts preserve input and instruct closing/refreshing. Task completion and cancellation retain history. A correction keeps the original entry and reason visible and excludes it from progress.
+
+Lead history merges notes, result/task entries and sales stages, with 30 entries per server-clamped page. `historyPage` changes preserve the same record and unsaved note; navigation to another lead/filter/view retains the draft guard. Activity timestamps display London time with named actors. Possible website visits stay in their separately labelled panel, with the established uncertainty rules.
+
+Verification: `tests/workflow.test.ts` exercises SQLite/PostgreSQL mutations, retry identity, rollback, conflict, scope, pagination, reporting, migration and deletion. `tests/ui.spec.ts` exercises pipeline/desk, desktop/mobile, keyboard, accessibility, response loss after a committed save, correction, task lifecycle, real version conflict and history paging with a draft. Database transfer tests include tasks and activities.

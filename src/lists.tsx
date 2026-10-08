@@ -1,3 +1,5 @@
+import { SalesPipeline, LeadQueueCard } from './sales-pipeline';
+import { WORK_VIEWS, type WorkflowLead } from './workflow';
 import { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate, useSearchParams, useParams, Outlet } from 'react-router-dom';
 import { DateTime } from 'luxon';
@@ -62,8 +64,11 @@ export function PageHeading({
     </div>
   );
 }
-export function receivedQuery(params: URLSearchParams): Record<string, string> {
-  const period = params.get('period') || '30';
+export function receivedQuery(
+  params: URLSearchParams,
+  defaultPeriod = '30',
+): Record<string, string> {
+  const period = params.get('period') || defaultPeriod;
   if (period === 'all') return {};
   if (period === 'custom') return { from: params.get('from') || '', to: params.get('to') || '' };
   return {
@@ -74,7 +79,7 @@ export function receivedQuery(params: URLSearchParams): Record<string, string> {
     to: today(),
   };
 }
-export function DateFilter() {
+export function DateFilter({ defaultPeriod = '30' }: { defaultPeriod?: string }) {
   const [params, setParams] = useSearchParams();
   const update = (key: string, value: string) => {
     const p = new URLSearchParams(params);
@@ -88,7 +93,7 @@ export function DateFilter() {
       <label>
         <span className="sr-only">Received period</span>
         <select
-          value={params.get('period') || '30'}
+          value={params.get('period') || defaultPeriod}
           onChange={(e) => update('period', e.target.value)}
         >
           <option value="30">Last 30 days</option>
@@ -289,6 +294,39 @@ function OverviewContent({ data: d }: { data: any }) {
           </Link>
         </section>
       </div>
+      {d.workflow && (
+        <section className="panel workflow-report">
+          <h2>Follow-up health</h2>
+          <p className="muted">Leads in this received cohort · recorded sales activity</p>
+          <div className="workflow-report-grid">
+            <div>
+              <span>Overdue follow-ups</span>
+              <strong>{d.workflow.overdue}</strong>
+              <small>Open leads with a past due action</small>
+            </div>
+            <div>
+              <span>No next step</span>
+              <strong>{d.workflow.missing}</strong>
+              <small>Open leads without a scheduled follow-up</small>
+            </div>
+            <div>
+              <span>Median time to first call attempt</span>
+              <strong>
+                {d.workflow.median_first_attempt_seconds === null
+                  ? 'Not recorded'
+                  : d.workflow.median_first_attempt_seconds < 60
+                    ? 'Under 1m'
+                    : d.workflow.median_first_attempt_seconds < 3600
+                      ? `${Math.round(d.workflow.median_first_attempt_seconds / 60)}m`
+                      : `${(d.workflow.median_first_attempt_seconds / 3600).toFixed(1)}h`}
+              </strong>
+              <small>
+                {d.workflow.attempted} of {d.received} leads have a recorded attempt
+              </small>
+            </div>
+          </div>
+        </section>
+      )}
       <section className="panel delivery-panel">
         <div>
           <div className="section-icon">
@@ -445,18 +483,19 @@ export function LeadTable({
   );
 }
 export function Leads() {
-  const { id } = useParams();
-  const w = useWorkspace(),
-    [params, setParams] = useSearchParams(),
-    [search, setSearch] = useState(''),
+  const { id } = useParams(),
+    w = useWorkspace(),
+    [params, setParams] = useSearchParams();
+  const [search, setSearch] = useState(''),
     [committed, setCommitted] = useState(''),
     [composing, setComposing] = useState(false),
     searchRef = useRef<HTMLInputElement>(null),
+    recordRef = useRef<HTMLElement>(null),
     [add, setAdd] = useState(false);
-
+  const pipeline = params.get('view') !== 'desk';
   useEffect(() => {
     if (composing) return;
-    const t = setTimeout(
+    const timer = setTimeout(
       () => {
         setCommitted(search);
         if (params.has('page')) {
@@ -467,23 +506,32 @@ export function Leads() {
       },
       search ? 300 : 0,
     );
-    return () => clearTimeout(t);
+    return () => clearTimeout(timer);
   }, [search, composing]);
   const query = new URLSearchParams({
-      ...receivedQuery(params),
-      data: w.scope,
-      q: committed,
-      stage: params.get('stage') || '',
-      form: params.get('form') || '',
-      problems: params.get('problems') || '',
-      page: params.get('page') || '1',
-    }),
-    state = useLoad(`/leads?${query}`);
+    ...receivedQuery(params, 'all'),
+    data: w.scope,
+    q: committed,
+    stage: params.get('stage') || '',
+    form: params.get('form') || '',
+    problems: params.get('problems') || '',
+    page: params.get('page') || '1',
+    work: params.get('work') || 'all',
+    sort: params.get('sort') || 'priority',
+    view: pipeline ? 'pipeline' : 'desk',
+  });
+  const state = useLoad(`/leads?${query}`);
   useEffect(() => {
     const refresh = () => state.refresh();
     window.addEventListener('crm:leads-changed', refresh);
     return () => window.removeEventListener('crm:leads-changed', refresh);
   }, []);
+  useEffect(() => {
+    if (id && pipeline) {
+      recordRef.current?.focus({ preventScroll: true });
+      recordRef.current?.scrollIntoView({ block: 'start' });
+    }
+  }, [id]);
   const update = (key: string, value: string) => {
     const p = new URLSearchParams(params);
     if (value) p.set(key, value);
@@ -491,13 +539,141 @@ export function Leads() {
     p.delete('page');
     setParams(p);
   };
+  const link = (path: string, changes: Record<string, string> = {}) => {
+    const p = new URLSearchParams(params);
+    for (const key of ['activityVisit', 'activityVisits', 'activityPage', 'historyPage'])
+      p.delete(key);
+    for (const [key, value] of Object.entries(changes)) {
+      if (value) p.set(key, value);
+      else p.delete(key);
+    }
+    return `${path}?${p}`;
+  };
+  const filters = (
+    <details className="queue-filters">
+      <summary>
+        Filters{' '}
+        <span>
+          {params.get('stage') || 'All stages'} ·{' '}
+          {params.get('period') && params.get('period') !== 'all' ? 'Received period' : 'All time'}
+        </span>
+      </summary>
+      <div className="filter-bar">
+        <Filter size={15} />
+        <label>
+          <span className="sr-only">Stage filter</span>
+          <select
+            aria-label="Stage filter"
+            value={params.get('stage') || ''}
+            onChange={(e) => update('stage', e.target.value)}
+          >
+            <option value="">All stages</option>
+            {STAGES.map((s) => (
+              <option key={s}>{s}</option>
+            ))}
+          </select>
+        </label>
+        <DateFilter defaultPeriod="all" />
+        <label>
+          <span className="sr-only">Form filter</span>
+          <select
+            aria-label="Form filter"
+            value={params.get('form') || ''}
+            onChange={(e) => update('form', e.target.value)}
+          >
+            <option value="">All forms</option>
+            {state.data?.forms.map((f: any) => (
+              <option key={f.form_id} value={f.form_id}>
+                {f.form_name || f.form_id}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="check">
+          <input
+            type="checkbox"
+            checked={params.get('problems') === 'true'}
+            onChange={(e) => update('problems', e.target.checked ? 'true' : '')}
+          />
+          Sync problems
+        </label>
+      </div>
+    </details>
+  );
+  const tools = (
+    <>
+      <div className="table-toolbar">
+        <div className="search-box">
+          <Search size={18} />
+          <input
+            ref={searchRef}
+            aria-label="Search leads"
+            placeholder="Search leads…"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            onCompositionStart={() => setComposing(true)}
+            onCompositionEnd={() => setComposing(false)}
+          />
+          {search && (
+            <button
+              aria-label="Clear search"
+              onClick={() => {
+                setSearch('');
+                setCommitted('');
+                searchRef.current?.focus();
+              }}
+            >
+              <X size={17} />
+            </button>
+          )}
+        </div>
+        <label className="queue-sort">
+          <span className="sr-only">Sort leads</span>
+          <select
+            aria-label="Sort leads"
+            value={params.get('sort') || 'priority'}
+            onChange={(e) => update('sort', e.target.value)}
+          >
+            <option value="priority">Next action first</option>
+            <option value="recent">Newest received</option>
+            <option value="stale">Longest without contact</option>
+          </select>
+        </label>
+        <Button variant="ghost" onClick={state.refresh} aria-label="Refresh leads">
+          <RefreshCw size={17} />
+        </Button>
+        <a className="button ghost" href="/api/leads/export" download>
+          <ArrowDownToLine size={16} />
+          Export
+        </a>
+      </div>
+      {filters}
+    </>
+  );
+  const empty = (
+    <Empty
+      title={
+        search || params.get('stage') || params.get('work') || params.get('problems')
+          ? 'No leads match these filters'
+          : 'No leads received in this period'
+      }
+    >
+      Try another date range, clear your filters, or add your first lead.
+    </Empty>
+  );
   return (
-    <div className={`lead-desk ${id ? 'has-selection' : ''}`}>
+    <div
+      className={`lead-desk ${pipeline ? 'pipeline-view' : 'desk-view'} ${id ? 'has-selection' : ''}`}
+    >
       <div className="desk-heading">
         <PageHeading
           eyebrow="WEBM8 · LEADS & OUTCOMES"
-          title="Lead desk"
-          description="Choose a lead. See the context. Keep the conversation moving."
+          title={pipeline ? 'Sales pipeline' : 'Lead desk'}
+          description={
+            pipeline
+              ? 'See what is moving, what is waiting and what needs a next step.'
+              : 'Work through the next conversations, one lead at a time.'
+          }
         >
           <Link className="button outline" to={w.link('/import')}>
             <Upload size={16} />
@@ -509,157 +685,95 @@ export function Leads() {
           </Button>
         </PageHeading>
       </div>
-      <div className="desk-columns">
-        <section className="panel lead-queue" aria-label="Lead queue">
-          <div className="table-toolbar">
-            <div className="search-box">
-              <Search size={18} />
-              <input
-                ref={searchRef}
-                aria-label="Search leads"
-                placeholder="Search leads…"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                onCompositionStart={() => setComposing(true)}
-                onCompositionEnd={() => setComposing(false)}
-              />
-              {search && (
-                <button
-                  aria-label="Clear search"
-                  onClick={() => {
-                    setSearch('');
-                    setCommitted('');
-                    searchRef.current?.focus();
-                  }}
-                >
-                  <X size={17} />
-                </button>
-              )}
-            </div>
-            <Button variant="ghost" onClick={state.refresh} aria-label="Refresh leads">
-              <RefreshCw size={17} />
+      <div className="lead-view-toolbar">
+        <nav className="lead-view-switch" aria-label="Lead views">
+          <Link
+            className={pipeline ? 'active' : ''}
+            aria-current={pipeline ? 'page' : undefined}
+            to={link(id ? `/leads/${id}` : '/leads', { view: 'pipeline', page: '' })}
+          >
+            Pipeline
+          </Link>
+          <Link
+            className={!pipeline ? 'active' : ''}
+            aria-current={!pipeline ? 'page' : undefined}
+            to={link(id ? `/leads/${id}` : '/leads', { view: 'desk', page: '' })}
+          >
+            Lead desk
+          </Link>
+        </nav>
+        <div className="work-filters" aria-label="Follow-up views">
+          {WORK_VIEWS.map(([key, label]) => (
+            <Button
+              key={key}
+              variant="ghost"
+              aria-pressed={(params.get('work') || 'all') === key}
+              onClick={() => update('work', key)}
+            >
+              {label}
+              <span>{state.data?.work_counts?.[key] ?? '—'}</span>
             </Button>
-            <a className="button ghost" href="/api/leads/export" download>
-              <ArrowDownToLine size={16} />
-              Export
-            </a>
-          </div>
-          <details className="queue-filters">
-            <summary>
-              Filters{' '}
-              <span>
-                {params.get('stage') || 'All stages'} ·{' '}
-                {params.get('period') === 'all' ? 'All time' : 'Received period'}
-              </span>
-            </summary>
-            <div className="filter-bar">
-              <Filter size={15} />
-              <label>
-                <span className="sr-only">Stage filter</span>
-                <select
-                  aria-label="Stage filter"
-                  value={params.get('stage') || ''}
-                  onChange={(e) => update('stage', e.target.value)}
-                >
-                  <option value="">All stages</option>
-                  {STAGES.map((s) => (
-                    <option key={s}>{s}</option>
-                  ))}
-                </select>
-              </label>
-              <DateFilter />
-              <label>
-                <span className="sr-only">Form filter</span>
-                <select
-                  aria-label="Form filter"
-                  value={params.get('form') || ''}
-                  onChange={(e) => update('form', e.target.value)}
-                >
-                  <option value="">All forms</option>
-                  {state.data?.forms.map((f: any) => (
-                    <option key={f.form_id} value={f.form_id}>
-                      {f.form_name || f.form_id}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label className="check">
-                <input
-                  type="checkbox"
-                  checked={params.get('problems') === 'true'}
-                  onChange={(e) => update('problems', e.target.checked ? 'true' : '')}
-                />
-                Sync problems
-              </label>
-            </div>
-          </details>
+          ))}
+        </div>
+      </div>
+      <div className="desk-columns">
+        <section
+          className={`panel lead-queue ${pipeline ? 'pipeline-panel' : ''}`}
+          aria-label="Lead queue"
+        >
+          {tools}
           <div className="queue-frame">
             {state.loading ? (
               <Loading />
             ) : state.error ? (
               <ErrorState error={state.error} retry={state.refresh} />
+            ) : pipeline ? (
+              state.data?.total ? (
+                <SalesPipeline
+                  columns={state.data.columns}
+                  counts={state.data.stage_counts}
+                  selected={id}
+                  leadLink={(leadId) => link(`/leads/${leadId}`)}
+                  stageLink={(stage, desk) =>
+                    link('/leads', { stage, view: desk ? 'desk' : 'pipeline', page: '' })
+                  }
+                />
+              ) : (
+                empty
+              )
             ) : state.data?.rows.length ? (
               <ol className="lead-queue-list">
-                {state.data.rows.map((lead: Lead) => (
+                {state.data.rows.map((lead: WorkflowLead) => (
                   <li key={lead.id}>
-                    <Link
-                      to={w.link(`/leads/${lead.id}`)}
-                      aria-label={lead.name}
-                      aria-current={id === lead.id ? 'page' : undefined}
-                      preventScrollReset
-                    >
-                      <div className="queue-name">
-                        <strong>{lead.name}</strong>
-                        <StageBadge stage={lead.stage} />
-                      </div>
-                      <span className="queue-source">
-                        {lead.is_demo
-                          ? 'Synthetic lead'
-                          : lead.website_submission_key
-                            ? 'Website demo'
-                            : lead.source === 'meta_instant_form'
-                              ? 'Meta Instant Form'
-                              : 'Manual lead'}
-                      </span>
-                      <span className="queue-next">
-                        <Clock3 size={13} />
-                        {lead.follow_up_at
-                          ? `Follow up ${date(lead.follow_up_at)}`
-                          : `Received ${date(lead.received_at, false)}`}
-                      </span>
-                    </Link>
+                    <LeadQueueCard
+                      lead={lead}
+                      href={link(`/leads/${lead.id}`)}
+                      selected={id === lead.id}
+                    />
                   </li>
                 ))}
               </ol>
             ) : (
-              <Empty
-                title={
-                  search || params.get('stage') || params.get('problems')
-                    ? 'No leads match these filters'
-                    : 'No leads received in this period'
-                }
-              >
-                Try another date range, clear your filters, or add your first lead.
-              </Empty>
+              empty
             )}
           </div>
-          {state.data && <Pagination page={state.data.page} total={state.data.total} />}
+          {!pipeline && state.data && (
+            <Pagination page={state.data.page} total={state.data.total} />
+          )}
         </section>
-        <section className="desk-record" aria-label="Lead record">
+        <section className="desk-record" aria-label="Lead record" ref={recordRef} tabIndex={-1}>
           {id ? (
             <Outlet />
           ) : (
-            <div className="desk-empty">
-              <UsersRound size={32} />
-              <h2>Your next conversation starts here</h2>
-              <p>
-                Select a lead to view contact details, possible website visits and the next
-                follow-up.
-              </p>
-              <p className="muted">
-                Only eligible Meta Instant Form leads enter the feedback loop.
-              </p>
-            </div>
+            !pipeline && (
+              <div className="desk-empty">
+                <UsersRound size={32} />
+                <h2>Your next conversation starts here</h2>
+                <p>
+                  Select a lead to view progress, possible website visits and the next follow-up.
+                </p>
+              </div>
+            )
           )}
         </section>
       </div>
@@ -667,7 +781,8 @@ export function Leads() {
     </div>
   );
 }
-export function NewLeadModal({ onClose }: { onClose: () => void }) {
+
+function NewLeadModal({ onClose }: { onClose: () => void }) {
   const toast = useToast(),
     navigate = useNavigate();
   return (

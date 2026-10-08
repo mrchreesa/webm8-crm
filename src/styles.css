@@ -3174,3 +3174,429 @@ summary:hover {
     display: block;
   }
 }
+
+/* Sales workflow: compact stages, one next action, factual activity history. */
+.lead-view-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  margin-bottom: 18px;
+}
+.lead-view-switch {
+  display: flex;
+  gap: 4px;
+  padding: 4px;
+  background: var(--color-track);
+  border-radius: var(--radius-default);
+}
+.lead-view-switch a {
+  padding: 8px 16px;
+  border-radius: 7px;
+  font-size: var(--text-ui);
+  font-weight: 600;
+}
+.lead-view-switch a.active {
+  background: var(--color-primary);
+  color: var(--color-surface);
+}
+.lead-view-switch a:not(.active):hover {
+  background: var(--color-border);
+}
+.work-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.work-filters .button {
+  padding: 8px 10px;
+  font-size: var(--text-label);
+}
+.work-filters .button[aria-pressed='true'] {
+  background: var(--color-primary);
+  color: var(--color-surface);
+}
+.work-filters .button span {
+  font-variant-numeric: tabular-nums;
+  margin-left: 4px;
+}
+.queue-sort {
+  max-width: 100%;
+  flex: 0 1 auto;
+}
+.queue-sort select {
+  max-width: 100%;
+  font-size: var(--text-label);
+}
+.pipeline-view .desk-columns {
+  display: block;
+}
+.pipeline-view .lead-queue {
+  position: static;
+}
+.pipeline-view .queue-frame {
+  max-height: none;
+  overflow: visible;
+}
+.pipeline-view .table-toolbar {
+  gap: 10px;
+}
+.pipeline-view .queue-filters .filter-bar {
+  display: flex;
+  flex-wrap: wrap;
+}
+.pipeline-view .queue-filters > summary span {
+  display: inline;
+  padding-left: 10px;
+}
+.pipeline-view .desk-record {
+  margin-top: 24px;
+  scroll-margin-top: 20px;
+}
+.pipeline-view .desk-record:empty {
+  display: none;
+}
+.sales-board {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+  padding: 18px;
+  align-items: start;
+}
+.sales-board.single-stage {
+  grid-template-columns: minmax(0, 1fr);
+}
+.single-stage .pipeline-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+  gap: 12px;
+}
+.pipeline-column {
+  min-width: 0;
+}
+.pipeline-column-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: start;
+  gap: 8px;
+  margin-bottom: 12px;
+  padding-bottom: 12px;
+  border-bottom: 2px solid var(--color-border);
+}
+.pipeline-column-heading h2 {
+  font-size: var(--text-ui);
+}
+.pipeline-count {
+  font-size: var(--text-label);
+  font-variant-numeric: tabular-nums;
+  color: var(--color-muted);
+}
+.pipeline-cards {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 10px;
+}
+.pipeline-cards .lead-work-card {
+  display: grid;
+  gap: 7px;
+  padding: 14px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-default);
+  background: var(--color-surface);
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.pipeline-cards .lead-work-card:hover {
+  background: var(--color-background);
+  border-color: var(--color-primary);
+}
+.pipeline-cards .lead-work-card[aria-current='page'] {
+  background: var(--color-track);
+  border-color: var(--color-primary);
+  box-shadow: inset 3px 0 var(--color-primary);
+}
+.pipeline-age,
+.last-result {
+  font-size: var(--text-caption);
+  color: var(--color-muted);
+}
+.queue-next {
+  margin-top: 3px;
+  align-items: start;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+.queue-next svg {
+  margin-top: 3px;
+}
+.queue-next small {
+  display: block;
+  font-size: var(--text-caption);
+  font-weight: 400;
+}
+.queue-next.overdue {
+  color: var(--color-danger);
+  font-weight: 600;
+}
+.queue-next.missing {
+  color: var(--color-warning);
+}
+.pipeline-empty {
+  padding: 18px 8px;
+  color: var(--color-muted);
+  font-size: var(--text-label);
+}
+.pipeline-more {
+  display: block;
+  padding: 12px 2px;
+  color: var(--color-primary);
+  font-size: var(--text-label);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.pipeline-outcomes {
+  padding: 14px 18px;
+  border-top: 1px solid var(--color-border);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 18px;
+  font-size: var(--text-label);
+}
+.pipeline-outcomes a {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px;
+}
+.pipeline-outcomes a:hover {
+  background: var(--color-track);
+  border-radius: 6px;
+}
+.pipeline-outcomes strong {
+  font-variant-numeric: tabular-nums;
+}
+.pipeline-note {
+  padding: 0 18px 16px;
+  color: var(--color-muted);
+  font-size: var(--text-caption);
+}
+.workflow-panel {
+  overflow: visible;
+}
+.lead-milestones {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 16px;
+  list-style: none;
+  margin: 0;
+  padding: 20px;
+  border-bottom: 1px solid var(--color-border);
+}
+.lead-milestones li {
+  display: flex;
+  align-items: start;
+  gap: 9px;
+  min-width: 0;
+}
+.milestone-icon {
+  width: 30px;
+  height: 30px;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  border-radius: 50%;
+  color: var(--color-muted);
+  background: var(--color-track);
+}
+.attained .milestone-icon {
+  background: var(--color-success-bg);
+  color: var(--color-success);
+}
+.lead-milestones strong,
+.lead-milestones span:not(.milestone-icon),
+.lead-milestones small {
+  display: block;
+}
+.lead-milestones strong {
+  font-size: var(--text-label);
+}
+.lead-milestones li div > span,
+.lead-milestones small {
+  font-size: var(--text-caption);
+  color: var(--color-muted);
+}
+.next-action {
+  padding: 20px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+.next-action.overdue {
+  border-left: 3px solid var(--color-danger);
+}
+.next-action.missing {
+  border-left: 3px solid var(--color-warning);
+}
+.next-action h3 {
+  font-size: var(--text-body);
+  overflow-wrap: anywhere;
+}
+.next-action small {
+  color: var(--color-muted);
+  font-size: var(--text-caption);
+}
+.next-action p {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+  font-size: var(--text-label);
+  margin: 5px 0;
+}
+.next-action p strong {
+  color: var(--color-danger);
+  font-size: var(--text-caption);
+}
+.next-action .muted {
+  font-size: var(--text-caption);
+}
+.workflow-actions,
+.task-secondary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.task-secondary {
+  padding: 0 14px 10px;
+}
+.task-secondary .button {
+  font-size: var(--text-label);
+}
+.followup-fields {
+  margin: 16px 0;
+  padding-top: 16px;
+  border-top: 1px solid var(--color-border);
+}
+.followup-fields > p {
+  margin-bottom: 12px;
+  font-size: var(--text-label);
+}
+.timeline-toolbar {
+  display: flex;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+  font-size: var(--text-caption);
+  color: var(--color-muted);
+  margin-top: 24px;
+  padding-top: 18px;
+  border-top: 1px solid var(--color-border);
+}
+.unified-timeline {
+  padding: 22px 0 0;
+}
+.entry-note {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  color: var(--color-text);
+}
+.timeline-correction.button {
+  padding: 4px 0;
+  font-size: var(--text-caption);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.corrected-entry .timeline-title strong {
+  text-decoration: line-through;
+}
+.workflow-report {
+  margin: 20px 0;
+  padding: 20px;
+}
+.workflow-report-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 20px;
+  margin-top: 16px;
+}
+.workflow-report-grid strong {
+  display: block;
+  font-size: 24px;
+  font-variant-numeric: tabular-nums;
+}
+.workflow-report-grid span,
+.workflow-report-grid small {
+  display: block;
+  color: var(--color-muted);
+  font-size: var(--text-label);
+}
+.workflow-report-grid small {
+  font-size: var(--text-caption);
+}
+@media (min-width: 1350px) {
+  .pipeline-view .desk-record .detail-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr);
+    gap: 24px;
+    align-items: start;
+  }
+  .pipeline-view .lead-milestones {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (max-width: 1200px) {
+  .sales-board {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .lead-milestones {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (max-width: 900px) {
+  .lead-desk.has-selection .lead-view-toolbar {
+    display: none;
+  }
+  .pipeline-view .desk-record {
+    margin-top: 0;
+  }
+}
+@media (max-width: 600px) {
+  .sales-board {
+    grid-template-columns: 1fr;
+    padding: 14px;
+  }
+  .pipeline-cards,
+  .single-stage .pipeline-cards {
+    grid-template-columns: 1fr;
+  }
+  .work-filters {
+    gap: 2px;
+  }
+  .work-filters .button {
+    padding: 10px 8px;
+  }
+  .pipeline-view .queue-filters > summary span {
+    display: block;
+    padding-left: 14px;
+  }
+  .queue-sort {
+    flex: 1 1 150px;
+  }
+  .lead-milestones,
+  .next-action {
+    padding: 16px;
+  }
+  .workflow-report-grid {
+    grid-template-columns: 1fr;
+  }
+  .next-action p {
+    align-items: start;
+  }
+}

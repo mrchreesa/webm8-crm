@@ -7,6 +7,8 @@ const tables = [
   'stage_history',
   'milestones',
   'notes',
+  'lead_tasks',
+  'lead_activities',
   'outbox',
   'inbox',
   'sessions',

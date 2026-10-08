@@ -56,7 +56,7 @@ export function NavigationGuard({ children }: { children: ReactNode }) {
   const dirty = useRef(new Set<string>()),
     [pending, setPending] = useState<(() => void) | null>(null);
   const blocker = useBlocker(({ currentLocation, nextLocation }) => {
-    // Website-history paging changes only this mounted lead's read-only panel.
+    // Website and CRM history paging change only this mounted lead's read-only panel.
     // Every other route or filter change retains the existing draft guard.
     if (
       currentLocation.pathname === nextLocation.pathname &&
@@ -65,7 +65,8 @@ export function NavigationGuard({ children }: { children: ReactNode }) {
     ) {
       const stable = (search: string) => {
         const values = new URLSearchParams(search);
-        for (const name of ['activityVisit', 'activityPage', 'activityVisits']) values.delete(name);
+        for (const name of ['activityVisit', 'activityPage', 'activityVisits', 'historyPage'])
+          values.delete(name);
         values.sort();
         return values.toString();
       };

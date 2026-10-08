@@ -11,6 +11,7 @@ import { settings, type DB } from './db.js';
 import type { Config } from './config.js';
 import { instant, nowISO } from './time.js';
 import { matchingIdentifiers, metaId, sha256 } from './matching.js';
+import { syncLegacyFollowUp, closeSalesFollowUp, workflowDetail } from './workflow.js';
 export class AppError extends Error {
   constructor(
     message: string,
@@ -228,6 +229,7 @@ export async function createLead(
       await db
         .prepare(`INSERT INTO leads (${keys.join(',')}) VALUES (${keys.map(() => '?').join(',')})`)
         .run(...Object.values(lead));
+      await syncLegacyFollowUp(db, lead, lead.follow_up_at, actor);
       await recordMilestone(
         db,
         cfg,
@@ -319,6 +321,8 @@ export async function changeStage(
           nowISO(),
           id,
         );
+      if (['Won', 'Lost', 'Unqualified'].includes(input.stage))
+        await closeSalesFollowUp(db, id, actor);
       return { changed: true, lead: await getLead(db, id) };
     })
     .immediate();
@@ -336,18 +340,31 @@ export async function editLead(
     qualification: string[];
     sale_minor: number | null;
   },
+  actor = 'Owner',
 ) {
   return await db
     .transaction(async () => {
       const lead = await getLead(db, id);
       if (patch.version !== lead.version)
         throw new AppError('This lead changed in another window. Refresh it before saving.', 409);
+      if (patch.follow_up_at && ['Won', 'Lost', 'Unqualified'].includes(lead.stage))
+        throw new AppError(
+          'Reopen this lead before scheduling sales follow-up.',
+          400,
+          'follow_up_at',
+        );
       if (lead.stage === 'Won' && patch.sale_minor === null)
         throw new AppError(
           'Keep a confirmed sale value for a Won lead, or correct its stage first.',
           400,
           'sale_minor',
         );
+      await syncLegacyFollowUp(
+        db,
+        lead,
+        patch.follow_up_at ? instant(patch.follow_up_at, true) : null,
+        actor,
+      );
       await db
         .prepare(
           'UPDATE leads SET name=?,email=?,phone=?,follow_up_at=?,appointment_at=?,qualification=?,sale_minor=?,updated_at=?,version=version+1 WHERE id=?',
@@ -374,7 +391,7 @@ export async function addNote(db: DB, id: string, text: string, author: string) 
   await db.prepare('INSERT INTO notes VALUES (@id,@lead_id,@text,@author,@created_at)').run(note);
   return note;
 }
-export async function leadDetail(db: DB, id: string) {
+export async function leadDetail(db: DB, id: string, activityPage = 1) {
   return {
     lead: await getLead(db, id),
     history: (await db
@@ -383,6 +400,7 @@ export async function leadDetail(db: DB, id: string) {
     notes: (await db
       .prepare('SELECT * FROM notes WHERE lead_id=? ORDER BY created_at DESC')
       .all(id)) as Note[],
+    workflow: await workflowDetail(db, id, activityPage),
     events: (
       (await db
         .prepare('SELECT * FROM outbox WHERE lead_id=? ORDER BY event_time,seq')

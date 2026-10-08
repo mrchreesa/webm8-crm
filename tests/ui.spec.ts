@@ -83,8 +83,10 @@ test.beforeEach(async ({ page }) => {
   await page.getByLabel('Owner email').fill('test@example.com');
   await page.getByLabel('Password', { exact: true }).fill('test-owner-password');
   await page.getByRole('button', { name: 'Sign in', exact: true }).click();
-  await expect(page.getByRole('heading', { name: 'Lead desk' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Sales pipeline' })).toBeVisible();
   await page.getByLabel('Lead data').selectOption('demo');
+  await page.getByRole('link', { name: 'Lead desk', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'Lead desk' })).toBeVisible();
 });
 test('owner can create, edit, record an outcome, note, export and permanently delete a manual lead', async ({
   page,
@@ -125,7 +127,7 @@ test('owner can create, edit, record an outcome, note, export and permanently de
   dialog = page.getByRole('dialog');
   await expect(dialog.getByRole('button', { name: 'Cancel' })).toBeFocused();
   await dialog.getByRole('button', { name: 'Delete lead' }).click();
-  await expect(page.getByRole('heading', { name: 'Lead desk' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Sales pipeline' })).toBeVisible();
   await expect(page.getByRole('link', { name: 'Browser Lead', exact: true })).toHaveCount(0);
 });
 test('demo dashboard, integration and sync log are honest; keyboard, mobile and accessibility work', async ({
@@ -251,6 +253,7 @@ test('received and stage filters restore after opening a lead; browser Back prot
   page,
 }) => {
   await page.getByRole('link', { name: 'Leads', exact: true }).click();
+  await page.getByRole('link', { name: 'Lead desk', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Lead desk' })).toBeVisible();
   await page.locator('.queue-filters > summary').click();
   await page.getByLabel('Received period').selectOption('all');
@@ -481,4 +484,212 @@ test('Lead desk keeps search and selection, guards record changes and returns to
   await page.getByRole('link', { name: 'Back to leads' }).click();
   await expect(page.getByLabel('Search leads')).toHaveValue('Demo');
   await expect(page.getByRole('link', { name: 'Demo James', exact: true })).toBeVisible();
+});
+
+test('Sales pipeline is the default and keeps progress, keyboard access and mobile layouts clear', async ({
+  page,
+}) => {
+  await page.goto('/leads?data=demo');
+  await expect(page.getByRole('heading', { name: 'Sales pipeline' })).toBeVisible();
+  await expect(page.getByRole('region', { name: 'New leads', exact: true })).toBeVisible();
+  await expect(
+    page.getByRole('region', { name: 'Appointment Booked leads', exact: true }),
+  ).toBeVisible();
+  await page.screenshot({ path: 'test-results/sales-pipeline-desktop.png', fullPage: true });
+  expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+  await page.locator('.queue-filters > summary').click();
+  await page.getByLabel('Sort leads').focus();
+  await page.keyboard.press('Space');
+  await page.keyboard.press('Escape');
+  await page.getByRole('link', { name: 'Demo Emma', exact: true }).focus();
+  await page.keyboard.press('Enter');
+  await expect(page.getByRole('heading', { name: 'Progress & next action' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Make the first contact' })).toBeVisible();
+  await page.screenshot({ path: 'test-results/pipeline-record-desktop.png', fullPage: true });
+  expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+  await page.setViewportSize({ width: 390, height: 844 });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  await page.screenshot({ path: 'test-results/pipeline-record-mobile.png', fullPage: true });
+  await page.getByRole('link', { name: 'Back to leads' }).click();
+  await expect(page.getByRole('heading', { name: 'Sales pipeline' })).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  await page.screenshot({ path: 'test-results/sales-pipeline-mobile.png', fullPage: true });
+  expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+});
+
+test('results and next steps survive a lost save response, update the queue and keep corrections auditable', async ({
+  page,
+}) => {
+  const { DateTime } = await import('luxon');
+  await page.getByRole('button', { name: 'Add lead', exact: true }).click();
+  let dialog = page.getByRole('dialog');
+  await dialog.getByLabel('Name', { exact: true }).fill('Workflow browser lead');
+  await dialog.getByRole('button', { name: 'Add lead', exact: true }).click();
+  await page.getByRole('link', { name: 'Workflow browser lead', exact: true }).click();
+  const progress = page.getByRole('region', { name: 'Lead progress and next action' });
+  await progress.getByRole('button', { name: 'Plan follow-up' }).click();
+  dialog = page.getByRole('dialog');
+  await dialog.getByLabel('Next action', { exact: true }).fill('Call to understand requirements');
+  await dialog
+    .getByLabel('Due · London time')
+    .fill(
+      DateTime.now().setZone('Europe/London').minus({ hours: 1 }).toFormat("yyyy-MM-dd'T'HH:mm"),
+    );
+  await dialog.getByRole('button', { name: 'Save follow-up' }).click();
+  await expect(progress.getByText('Overdue', { exact: true })).toBeVisible();
+  let requests = 0;
+  await page.route('**/api/leads/*/activities', async (route) => {
+    requests++;
+    if (requests === 1) {
+      const committed = await route.fetch();
+      expect(committed.ok()).toBeTruthy();
+      await route.fulfill({
+        status: 503,
+        contentType: 'application/json',
+        body: JSON.stringify({ error: 'Connection interrupted. Try saving again.' }),
+      });
+    } else await route.continue();
+  });
+  await progress.getByRole('button', { name: 'Log result' }).click();
+  dialog = page.getByRole('dialog');
+  await dialog.getByLabel('What happened?').selectOption('no_answer');
+  await dialog.getByLabel('Conversation note').fill('Will try again tomorrow');
+  await dialog.getByLabel('Mark “Call to understand requirements” done').check();
+  await dialog.getByLabel('Set the next follow-up').check();
+  await dialog.getByLabel('Next action', { exact: true }).fill('Try the agreed callback');
+  await dialog
+    .getByLabel('Follow-up due · London time')
+    .fill(DateTime.now().setZone('Europe/London').plus({ days: 1 }).toFormat("yyyy-MM-dd'T'HH:mm"));
+  await dialog.getByRole('button', { name: 'Save result' }).click();
+  await expect(dialog.getByText('Connection interrupted. Try saving again.')).toBeVisible();
+  await expect(dialog.getByLabel('Conversation note')).toHaveValue('Will try again tomorrow');
+  await dialog.getByRole('button', { name: 'Save result' }).click();
+  await expect(dialog).toHaveCount(0);
+  await expect(progress.getByRole('heading', { name: 'Try the agreed callback' })).toBeVisible();
+  await expect(progress).toContainText('Last recorded conversation: None yet');
+  await expect(
+    page.locator('.unified-timeline .timeline-title').getByText('No answer', { exact: true }),
+  ).toHaveCount(1);
+  await expect(
+    page.getByRole('link', { name: 'Workflow browser lead', exact: true }),
+  ).toContainText('Try the agreed callback');
+  await expect(page.locator('.desk-record > .page-heading')).toContainText('New');
+  await page.unroute('**/api/leads/*/activities');
+  await progress.getByRole('button', { name: 'Log result' }).click();
+  await page.getByRole('dialog').getByLabel('What happened?').selectOption('first_call_completed');
+  await page.getByRole('dialog').getByRole('button', { name: 'Save result' }).click();
+  await expect(
+    progress.locator('.lead-milestones li').filter({ hasText: 'First call' }),
+  ).toContainText('Completed');
+  const entry = page
+    .locator('.timeline-item')
+    .filter({ has: page.getByText('First call completed', { exact: true }) });
+  await entry.getByRole('button', { name: 'Correct entry' }).click();
+  await page.getByLabel('Correction reason').fill('Only a brief connection, not a discovery call');
+  await page.getByRole('dialog').getByRole('button', { name: 'Correct entry' }).click();
+  await expect(entry).toContainText('Corrected');
+  await expect(
+    progress.locator('.lead-milestones li').filter({ hasText: 'First call' }),
+  ).toContainText('Not recorded');
+  await expect(progress.getByRole('heading', { name: 'Try the agreed callback' })).toBeVisible();
+  await progress.getByRole('button', { name: 'Log result' }).click();
+  dialog = page.getByRole('dialog');
+  await dialog.getByLabel('What happened?').selectOption('demo_booked');
+  await dialog
+    .getByLabel('Demo date · London time')
+    .fill(DateTime.now().setZone('Europe/London').plus({ days: 2 }).toFormat("yyyy-MM-dd'T'HH:mm"));
+  await dialog.getByRole('button', { name: 'Save result' }).click();
+  await expect(progress.locator('.lead-milestones li').filter({ hasText: 'Demo' })).toContainText(
+    'Booked',
+  );
+  await expect(progress.locator('.lead-milestones li').filter({ hasText: 'Demo' })).not.toHaveClass(
+    'attained',
+  );
+  await page.screenshot({ path: 'test-results/workflow-record-desktop.png', fullPage: true });
+  await page.setViewportSize({ width: 390, height: 844 });
+  await progress.getByRole('button', { name: 'Reschedule' }).click();
+  expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  await page.screenshot({ path: 'test-results/workflow-dialog-mobile.png', fullPage: true });
+});
+
+test('follow-up lifecycle and history pagination preserve drafts and reject conflicting changes', async ({
+  page,
+}) => {
+  const { DateTime } = await import('luxon');
+  const session = await (await page.request.get('/api/auth/session')).json();
+  const headers = { 'X-CSRF-Token': session.csrf_token, Origin: 'http://127.0.0.1:5185' };
+  const created = await page.request.post('/api/leads', {
+    headers,
+    data: { name: 'Workflow history lead' },
+  });
+  expect(created.ok()).toBeTruthy();
+  const { lead } = await created.json();
+  for (let i = 0; i < 32; i++)
+    expect(
+      (
+        await page.request.post(`/api/leads/${lead.id}/notes`, {
+          headers,
+          data: { text: `Historical note ${i}` },
+        })
+      ).ok(),
+    ).toBeTruthy();
+  await page.goto(`/leads/${lead.id}?data=business&view=desk`);
+  await page.getByLabel('Add a note').fill('Keep this unfinished conversation note');
+  await page.getByRole('button', { name: 'Next activity' }).click();
+  await expect(page.getByText('Page 2 of 2', { exact: true })).toBeVisible();
+  await expect(page.getByLabel('Add a note')).toHaveValue('Keep this unfinished conversation note');
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+  await page.getByRole('link', { name: 'Back to leads' }).click();
+  await expect(page.getByRole('dialog', { name: 'Discard unsaved changes?' })).toBeVisible();
+  await page.getByRole('button', { name: 'Keep editing' }).click();
+  await page.getByLabel('Add a note').fill('');
+  await page.getByRole('button', { name: 'Plan follow-up' }).click();
+  let dialog = page.getByRole('dialog');
+  await dialog.getByLabel('Next action', { exact: true }).fill('Review the requirements');
+  await dialog
+    .getByLabel('Due · London time')
+    .fill(DateTime.now().setZone('Europe/London').plus({ days: 1 }).toFormat("yyyy-MM-dd'T'HH:mm"));
+  await dialog.getByRole('button', { name: 'Save follow-up' }).click();
+  await page.getByRole('button', { name: 'Reschedule', exact: true }).click();
+  dialog = page.getByRole('dialog');
+  await dialog.getByLabel('Next action', { exact: true }).fill('Review the proposal');
+  await dialog.getByRole('button', { name: 'Save follow-up' }).click();
+  await expect(page.getByRole('heading', { name: 'Review the proposal' })).toBeVisible();
+  await page.getByRole('button', { name: 'Mark done', exact: true }).click();
+  await page.getByRole('dialog').getByRole('button', { name: 'Mark follow-up done' }).click();
+  await expect(page.getByRole('region', { name: 'Lead progress and next action' })).toContainText(
+    'Last recorded conversation: None yet',
+  );
+  await page.getByRole('button', { name: 'Plan follow-up' }).click();
+  dialog = page.getByRole('dialog');
+  await dialog.getByLabel('Next action', { exact: true }).fill('Try again');
+  await dialog
+    .getByLabel('Due · London time')
+    .fill(DateTime.now().setZone('Europe/London').plus({ days: 1 }).toFormat("yyyy-MM-dd'T'HH:mm"));
+  // A concurrent genuine server update must make the open form stale.
+  const detail = await (await page.request.get(`/api/leads/${lead.id}`)).json();
+  expect(
+    (
+      await page.request.post(`/api/leads/${lead.id}/activities`, {
+        headers,
+        data: {
+          id: crypto.randomUUID(),
+          version: detail.lead.version,
+          kind: 'no_answer',
+          occurred_at: new Date().toISOString(),
+        },
+      })
+    ).ok(),
+  ).toBeTruthy();
+  await dialog.getByRole('button', { name: 'Save follow-up' }).click();
+  await expect(
+    dialog.getByText(
+      'This lead changed in another window. Close this form and refresh before saving.',
+    ),
+  ).toBeVisible();
+  await expect(dialog.getByLabel('Next action', { exact: true })).toHaveValue('Try again');
+  const after = await (await page.request.get(`/api/leads/${lead.id}/workflow`)).json();
+  expect(after.task).toBeNull();
+  expect(after.last_contact_at).toBeNull();
 });
